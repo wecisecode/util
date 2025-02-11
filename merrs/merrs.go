@@ -24,21 +24,30 @@ type ErrorClass struct {
 	gec *errors.ErrorClass
 }
 
-func (e *ErrorClass) New(format string, args ...interface{}) error {
-	return e.NewWith("", []error{fmt.Errorf(format, args...)}, nil, 1)
-}
-
 func (e *ErrorClass) NewPlain(args ...interface{}) error {
 	return e.NewWith("", []error{fmt.Errorf("%s", fmt.Sprint(args...))}, nil, 1)
 }
 
-// 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]string, map[string]any, SSTuples, SSTuple, [2]string
+func (e *ErrorClass) NewError(infos ...any) error {
+	return e.New(append(infos, 1)...)
+}
+
+// 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]string, Map, map[string]any, SSTuples, SSTuple, [2]string
 // depth int
-func (e *ErrorClass) NewError(info ...any) error {
+func (e *ErrorClass) New(infos ...any) error {
+	if len(infos) > 0 {
+		if format, ok := infos[0].(string); ok {
+			fcount := strings.Count(strings.ReplaceAll(format, "%%", ""), "%")
+			if fcount > 0 && len(infos) > fcount {
+				msg := fmt.Sprintf(format, infos[1:fcount+1]...)
+				infos = append([]any{msg}, infos[fcount+1:]...)
+			}
+		}
+	}
 	depth := 1
 	cause := []error{}
 	infossms := SSMaps{}
-	for i, info := range info {
+	for i, info := range infos {
 		if info == nil {
 			continue
 		}
@@ -96,7 +105,38 @@ func (e *ErrorClass) NewError(info ...any) error {
 			for _, info := range info {
 				infossms = append(infossms, SSMap{info[0]: info[1]})
 			}
-		case map[string]interface{}:
+		case Maps:
+			if len(info) == 0 {
+				continue
+			}
+			for _, info := range info {
+				ssm := SSMap{}
+				for k, v := range info {
+					ssm[k] = cast.ToString(v)
+				}
+				infossms = append(infossms, ssm)
+			}
+		case []map[string]any:
+			if len(info) == 0 {
+				continue
+			}
+			for _, info := range info {
+				ssm := SSMap{}
+				for k, v := range info {
+					ssm[k] = cast.ToString(v)
+				}
+				infossms = append(infossms, ssm)
+			}
+		case Map:
+			if len(info) == 0 {
+				continue
+			}
+			ssm := SSMap{}
+			for k, v := range info {
+				ssm[k] = cast.ToString(v)
+			}
+			infossms = append(infossms, ssm)
+		case map[string]any:
 			if len(info) == 0 {
 				continue
 			}
@@ -132,6 +172,8 @@ type SSTuples [][2]string
 type SSTuple [2]string
 type SSMap map[string]string
 type SSMaps []map[string]string
+type Map map[string]any
+type Maps []map[string]any
 
 // inform map数组，用于显示一些有序的key-value信息，martix.SSMaps{{"k1","v1"},{"k2":"v2"}...}，
 // stacks_depth >=0 自动生成调用栈信息，stacks_depth < 0 不打印调用栈，
@@ -446,9 +488,13 @@ func ErrorType(err error) string {
 	return ErrProgram.String()
 }
 
-// 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]string, map[string]any, SSTuples, SSTuple, [2]string
+// 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]any, map[string]any, SSTuples, SSTuple, [2]string
+func New(info ...any) error {
+	return MErr.New(append(info, 1)...)
+}
+
 func NewError(info ...any) error {
-	return MErr.NewError(append(info, 1)...)
+	return MErr.New(append(info, 1)...)
 }
 
 func NewCause(cause ...error) error {
