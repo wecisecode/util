@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cast"
 )
 
-// //
 type ErrDataKey errors.DataKey
 
 var ErrorDataKeyModule = ErrDataKey(errors.GenSym())
@@ -351,8 +350,12 @@ var ServicePartError = NewErrorClass("ServicePart", nil)
 var ServiceProcError = NewErrorClass("ServiceProc", nil)
 var ServiceOutputError = NewErrorClass("ServiceOutput", nil)
 var UnsupportedError = NewErrorClass("Unsupported", nil)
+var CollisionError = NewErrorClass("Collision", nil)
 
 var UninitedError = NewErrorClass("UninitedError", nil)
+var ClosedError = NewErrorClass("CloseError", nil)
+var ExistError = NewErrorClass("ExistError", nil)
+var NotExistError = NewErrorClass("NotExistError", nil)
 
 // 转为errors.Error，用于分类判断
 func gerror(err error) *errors.Error {
