@@ -3,7 +3,6 @@ module github.com/wecisecode/util
 go 1.20
 
 require (
-	git.wecise.com/wecise/util v0.0.0-20250211130446-7940676f0a44
 	github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62
 	github.com/spf13/cast v1.7.0
 	github.com/stretchr/testify v1.10.0

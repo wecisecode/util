@@ -1,5 +1,3 @@
-git.wecise.com/wecise/util v0.0.0-20250211130446-7940676f0a44 h1:kfzUFxCxLdlhOoBaP0SFYCwvTl6qFOReFnNXZJ5sel4=
-git.wecise.com/wecise/util v0.0.0-20250211130446-7940676f0a44/go.mod h1:9349QCkjPB2gs9a+kCzwHgMtOuf+KovY/2uRkLT4w3A=
 github.com/coreos/go-semver v0.3.0 h1:wkHLiw0WNATZnSG7epLsujiMCgPAc9xhjJ4tgnAxmfM=
 github.com/coreos/go-semver v0.3.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/coreos/go-systemd/v22 v22.3.2 h1:D9/bQk5vlXQFZ6Kwuu6zaiXJ9oTPe68++AzAJc1DzSI=

@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"git.wecise.com/wecise/util/bfappender"
-	"git.wecise.com/wecise/util/cfg"
-	"git.wecise.com/wecise/util/mfmt"
+	"github.com/wecisecode/util/bfappender"
+	"github.com/wecisecode/util/cfg"
+	"github.com/wecisecode/util/mfmt"
 )
 
 func init() {
