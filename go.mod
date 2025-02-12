@@ -7,6 +7,7 @@ require (
 	github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62
 	github.com/spf13/cast v1.7.0
 	github.com/stretchr/testify v1.10.0
+	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.etcd.io/etcd/client/v3 v3.5.8
 )
 
@@ -17,6 +18,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.8 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.8 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
