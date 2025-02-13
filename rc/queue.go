@@ -7,8 +7,8 @@ import (
 )
 
 type ConcurQueue struct {
-	mutex           sync.Mutex
 	limitcount      int
+	mutex           sync.Mutex
 	priortityweight []int
 	priortityqueue  map[int][]func()
 	queuecount      int
@@ -38,6 +38,7 @@ func NewConcurQueue(LimitCount int) (cq *ConcurQueue) {
 }
 
 // 按指定优先权重 weight 插入并发请求 proc
+// 超出 LimitCount 时，仍然可以插入，但change会被阻塞，无法返回
 func (cq *ConcurQueue) Push(weight int, proc func()) {
 	cq.push(weight, proc)
 	cq.changenotify()
