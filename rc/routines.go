@@ -64,7 +64,7 @@ func NewRoutinesController(rcname string, ConcurrencyLimitCount int) (rl *Routin
 	n++
 	rcnamecount[rcname] = n
 	rcnamecountmutex.Unlock()
-	return newRoutinesController(rcname, n, src, ConcurrencyLimitCount, WarningQueueSize*4)
+	return newRoutinesController(rcname, n, src, ConcurrencyLimitCount, 0)
 }
 
 // QueuelimitCount 不能低于 ConcurrencyLimitCount
@@ -104,11 +104,10 @@ func newRoutinesController(rcname string, rcnamecount int, srcline string, Concu
 		onqueuechanged:    map[int64]func(){},
 		lastactivetime:    time.Now(),
 		waitNewJobTimeout: &DefaultWaitNewJobTimeout,
-		chqueuelimit:      make(chan byte, QueueLimitCount),
 		stop:              make(chan bool, 1),
 	}
 	rl.stop <- false
-	rl.SetConcurrencyLimitCount(ConcurrencyLimitCount)
+	rl.SetConcurQueueLimit(ConcurrencyLimitCount, QueueLimitCount)
 	return
 }
 
@@ -137,6 +136,10 @@ func (rl *RoutinesController) onQueueChanged() {
 }
 
 func (rl *RoutinesController) SetConcurrencyLimitCount(ConcurrencyLimitCount int) {
+	rl.SetConcurQueueLimit(ConcurrencyLimitCount, cap(rl.chqueuelimit))
+}
+
+func (rl *RoutinesController) SetConcurQueueLimit(ConcurrencyLimitCount, QueueLimitCount int) {
 	rl.queueMutex.Lock()
 	defer rl.queueMutex.Unlock()
 	newLimitCount := initLimitCount(ConcurrencyLimitCount)
@@ -148,16 +151,49 @@ func (rl *RoutinesController) SetConcurrencyLimitCount(ConcurrencyLimitCount int
 	}
 	// 重新设置 rl.concurlimitCount 后，超出限制的已运行协程会自动停止
 	rl.concurlimitCount = newLimitCount
-	if cap(rl.chqueuelimit) < newLimitCount {
-		oldchqueuelimit := rl.chqueuelimit
-		rl.chqueuelimit = make(chan byte, newLimitCount)
-		done := false
-		for !done {
-			select {
-			case v := <-oldchqueuelimit:
-				rl.chqueuelimit <- v
-			default:
-				done = true
+	if QueueLimitCount > 0 {
+		// 限制 队列插入
+		if rl.chqueuelimit == nil {
+			// 新建限制队列
+			rl.chqueuelimit = make(chan byte, QueueLimitCount)
+		} else if cap(rl.chqueuelimit) != QueueLimitCount {
+			// 迁移原来的限制队列
+			oldchqueuelimit := rl.chqueuelimit
+			rl.chqueuelimit = make(chan byte, QueueLimitCount)
+			go func() {
+				// 已经在队列中的，直接迁入新队列
+				for i := 0; i < len(oldchqueuelimit); i++ {
+					rl.chqueuelimit <- 1
+				}
+				// 正在排队等待，尚未进入队列的
+				done := false
+				for !done {
+					// 先占新队
+					rl.chqueuelimit <- 1
+					select {
+					case <-oldchqueuelimit:
+						// 再从旧队中清除
+					default:
+						done = true
+						// 已经清除干净，退回多占的位置，结束迁移
+						<-rl.chqueuelimit
+					}
+				}
+			}()
+		}
+	} else {
+		// 不限制 队列插入
+		if rl.chqueuelimit != nil {
+			// 解除原来的限制
+			oldchqueuelimit := rl.chqueuelimit
+			rl.chqueuelimit = nil
+			done := false
+			for !done {
+				select {
+				case <-oldchqueuelimit:
+				default:
+					done = true
+				}
 			}
 		}
 	}
@@ -217,8 +253,11 @@ func (rl *RoutinesController) clearQueue(run_job_in_queue bool) {
 				if run_job_in_queue {
 					go rl.run_job_1(f)
 				} else {
+					// 直接清空
 					rl.queueCount--
-					<-rl.chqueuelimit // 直接清空
+					if rl.chqueuelimit != nil {
+						<-rl.chqueuelimit
+					}
 				}
 				if len(qc) == 0 {
 					done = true
@@ -332,7 +371,9 @@ func (rl *RoutinesController) run_job_1(f func()) {
 		rl.onQueueChanged()
 		rl.lastactivetime = time.Now()
 		rl.queueMutex.Unlock()
-		<-rl.chqueuelimit
+		if rl.chqueuelimit != nil {
+			<-rl.chqueuelimit
+		}
 	}()
 	f()
 }
@@ -407,12 +448,16 @@ func (rl *RoutinesController) push(priortity int, f func()) {
 //
 //	所有优先级不为 1 的情况，都在最外层代码以 “priortity :=” 的形式设置优先级，方便查找
 func (rl *RoutinesController) ConcurCall(priortity int, f func()) error {
-	rl.chqueuelimit <- 1
+	if rl.chqueuelimit != nil {
+		rl.chqueuelimit <- 1
+	}
 	// chqueuelimit 阻塞期间 stopped 可能会改变
 	stopped := <-rl.stop
 	rl.stop <- stopped
 	if stopped {
-		<-rl.chqueuelimit
+		if rl.chqueuelimit != nil {
+			<-rl.chqueuelimit
+		}
 		return ErrQueueClosed
 	}
 	rl.queueMutex.Lock()
@@ -422,20 +467,26 @@ func (rl *RoutinesController) ConcurCall(priortity int, f func()) error {
 }
 
 func (rl *RoutinesController) CallLast2Only(f func()) error {
-	rl.chqueuelimit <- 1
+	if rl.chqueuelimit != nil {
+		rl.chqueuelimit <- 1
+	}
 	// chqueuelimit 阻塞期间 stopped 可能会改变
 	stopped := <-rl.stop
 	rl.stop <- stopped
 	if stopped {
 		// 取消 push，清除站位标记
-		<-rl.chqueuelimit
+		if rl.chqueuelimit != nil {
+			<-rl.chqueuelimit
+		}
 		return ErrQueueClosed
 	}
 	rl.queueMutex.Lock()
 	defer rl.queueMutex.Unlock()
 	if rl.queueCount >= 2 {
 		// 取消 push，清除站位标记
-		<-rl.chqueuelimit
+		if rl.chqueuelimit != nil {
+			<-rl.chqueuelimit
+		}
 		return nil
 	}
 	rl.push(1, f)

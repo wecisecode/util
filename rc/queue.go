@@ -56,13 +56,13 @@ func (cq *ConcurQueue) changenotify() {
 func (cq *ConcurQueue) ChanCapGrowth(ch *chan byte) {
 	qc := *ch
 	capqc := cap(qc)
-	if capqc >= cq.limitcount {
-		return
-	}
+	// if cq.limitcount > 0 && capqc >= cq.limitcount {
+	// 	return
+	// }
 	nqcsize := capqc * 2
-	if nqcsize > cq.limitcount {
-		nqcsize = cq.limitcount
-	}
+	// if cq.limitcount > 0 && nqcsize > cq.limitcount {
+	// 	nqcsize = cq.limitcount
+	// }
 	new_queueChange := make(chan byte, nqcsize)
 	done := false
 	for !done {

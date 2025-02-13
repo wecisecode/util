@@ -1,42 +1,124 @@
 package rc_test
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/wecisecode/util/logger"
 	"github.com/wecisecode/util/rc"
 )
 
 func TestRC(t *testing.T) {
 	var wg sync.WaitGroup
 	rc := rc.NewRoutinesControllerLimit("", 1, 2)
-	fmt.Println(1)
+	logger.Info(1)
 	wg.Add(1)
 	rc.ConcurCall(1, func() {
 		defer wg.Done()
-		fmt.Println(1, "s")
+		logger.Info(1, "s")
 		time.Sleep(3 * time.Second)
-		fmt.Println(1, "e")
+		logger.Info(1, "e")
 	})
-	fmt.Println(2)
+	logger.Info(2)
 	wg.Add(1)
 	rc.ConcurCall(1, func() {
 		defer wg.Done()
-		fmt.Println(2, "s")
+		logger.Info(2, "s")
 		time.Sleep(3 * time.Second)
-		fmt.Println(2, "e")
+		logger.Info(2, "e")
 	})
-	fmt.Println(3)
+	logger.Info(3)
 	wg.Add(1)
 	rc.ConcurCall(1, func() {
 		defer wg.Done()
-		fmt.Println(3, "s")
+		logger.Info(3, "s")
 		time.Sleep(3 * time.Second)
-		fmt.Println(3, "e")
+		logger.Info(3, "e")
 	})
-	fmt.Println("S")
+	logger.Info("S")
 	rc.SetConcurrencyLimitCount(3)
+	wg.Wait()
+}
+
+func TestRC0(t *testing.T) {
+	var wg sync.WaitGroup
+	rc := rc.NewRoutinesController("", 1)
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			rc.ConcurCall(1, func() {
+				defer wg.Done()
+				logger.Info(i, "start")
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				time.Sleep(3 * time.Second)
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				logger.Info(i, "end")
+			})
+			logger.Info(i, "pushed")
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestRC1(t *testing.T) {
+	var wg sync.WaitGroup
+	rc := rc.NewRoutinesControllerLimit("", 1, 3)
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			rc.ConcurCall(1, func() {
+				defer wg.Done()
+				logger.Info(i, "start")
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				time.Sleep(3 * time.Second)
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				logger.Info(i, "end")
+			})
+			logger.Info(i, "pushed")
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestRC2(t *testing.T) {
+	var wg sync.WaitGroup
+	rc := rc.NewRoutinesControllerLimit("", 1, 1)
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			rc.ConcurCall(1, func() {
+				defer wg.Done()
+				logger.Info(i, "start")
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				time.Sleep(3 * time.Second)
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				logger.Info(i, "end")
+				rc.SetConcurQueueLimit(1, 4)
+			})
+			logger.Info(i, "pushed")
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestRC3(t *testing.T) {
+	var wg sync.WaitGroup
+	rc := rc.NewRoutinesControllerLimit("", 2, 4)
+	for i := 1; i <= 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			rc.ConcurCall(1, func() {
+				defer wg.Done()
+				logger.Info(i, "start")
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				time.Sleep(3 * time.Second)
+				logger.Info(i, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+				logger.Info(i, "end")
+				rc.SetConcurQueueLimit(1, 1)
+			})
+			logger.Info(i, "pushed")
+		}(i)
+	}
 	wg.Wait()
 }
