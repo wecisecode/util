@@ -345,7 +345,13 @@ func (rl *RoutinesController) run() {
 		mutex.Unlock()
 	}()
 	ncpu := runtime.GOMAXPROCS(0)
-	timesharing := (rl.concurlimitCount - ncpu) / ncpu
+	timesharing := (runtime.NumGoroutine() - ncpu) / ncpu
+	if timesharing > 1000 {
+		timesharing = 1000 // time.Microsecond
+	}
+	if timesharing < 1 {
+		timesharing = 1 // time.Nanosecond
+	}
 	wait_new_job := time.NewTimer(math.MaxInt64)
 	defer wait_new_job.Stop()
 	for rl.run_job(wait_new_job) {
