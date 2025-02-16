@@ -345,9 +345,9 @@ func (rl *RoutinesController) run() {
 		mutex.Unlock()
 	}()
 	ncpu := runtime.GOMAXPROCS(0)
-	timesharing := (runtime.NumGoroutine() - ncpu) / ncpu
-	if timesharing > 1000 {
-		timesharing = 1000 // time.Microsecond
+	timesharing := (rl.QueueCount() - ncpu) / ncpu
+	if timesharing > 1000000 {
+		timesharing = 1000000 // time.Microsecond
 	}
 	if timesharing < 1 {
 		timesharing = 1 // time.Nanosecond
@@ -356,7 +356,7 @@ func (rl *RoutinesController) run() {
 	defer wait_new_job.Stop()
 	for rl.run_job(wait_new_job) {
 		if timesharing > 0 {
-			time.Sleep(time.Duration(timesharing))
+			time.Sleep(time.Duration(timesharing) * 10)
 		}
 	}
 }
