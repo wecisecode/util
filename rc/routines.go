@@ -163,44 +163,69 @@ func (rl *RoutinesController) SetConcurQueueLimit(ConcurrencyLimitCount, QueueLi
 			// 迁移原来的限制队列
 			oldchqueuelimit := rl.chqueuelimit
 			rl.chqueuelimit = make(chan byte, QueueLimitCount)
-			go func() {
-				// 已经在队列中的，直接迁入新队列
-				for i := 0; i < len(oldchqueuelimit); i++ {
-					rl.chqueuelimit <- 1
-				}
-				// 正在排队等待，尚未进入队列的
-				done := false
-				for !done {
-					// 先占新队
-					rl.chqueuelimit <- 1
-					select {
-					case <-oldchqueuelimit:
-						// 再从旧队中清除
-					default:
-						done = true
-						// 已经清除干净，退回多占的位置，结束迁移
-						<-rl.chqueuelimit
-					}
-				}
-			}()
+			qmove(oldchqueuelimit, rl.chqueuelimit)
 		}
 	} else {
 		// 不限制 队列插入
 		if rl.chqueuelimit != nil {
 			// 解除原来的限制
+			// relase all
 			oldchqueuelimit := rl.chqueuelimit
 			rl.chqueuelimit = nil
-			done := false
-			for !done {
-				select {
-				case <-oldchqueuelimit:
-				default:
-					done = true
-				}
-			}
+			qmove(oldchqueuelimit, rl.chqueuelimit)
 		}
 	}
 	rl.prepare_gorun()
+}
+
+func (rl *RoutinesController) qrequest1() {
+	oql := rl.chqueuelimit
+	if oql != nil {
+		oql <- 1
+	}
+}
+
+func (rl *RoutinesController) qrelease1() {
+	oql := rl.chqueuelimit
+	if oql != nil {
+		<-oql
+	}
+}
+
+func qmove(oldchqueue, newchqueue chan byte) {
+	go func() {
+		// 已经在队列中的，直接迁入新队列
+		if newchqueue != nil {
+			for i := 0; i < len(oldchqueue); i++ {
+				newchqueue <- 1
+			}
+		}
+		// 正在排队等待，尚未进入队列的
+		done := 2 // 2:队列中有数据 1:等待队列中新入数据 0:延迟等待后，队列中无数据
+		for done != 0 {
+			// 先占新队
+			if newchqueue != nil {
+				newchqueue <- 1
+			}
+			select {
+			case <-oldchqueue:
+				// 再从旧队中清除
+				done = 2
+			default:
+				if done == 2 {
+					time.Sleep(1 * time.Second)
+					done = 1
+				} else {
+					// 延迟等待，已经清除干净，结束迁移
+					done = 0
+				}
+				// 退回多占的位置
+				if newchqueue != nil {
+					<-newchqueue
+				}
+			}
+		}
+	}()
 }
 
 // 关闭协程控制，队列中未执行完成的协程将全部被取消
@@ -258,9 +283,7 @@ func (rl *RoutinesController) clearQueue(run_job_in_queue bool) {
 				} else {
 					// 直接清空
 					rl.queueCount--
-					if rl.chqueuelimit != nil {
-						<-rl.chqueuelimit
-					}
+					rl.qrelease1()
 				}
 				if len(qc) == 0 {
 					done = true
@@ -357,6 +380,7 @@ func (rl *RoutinesController) run_job(wait_new_job *time.Timer) bool {
 
 func (rl *RoutinesController) run_job_1(f func()) {
 	if f == nil {
+		// close chan
 		return
 	}
 	rl.queueMutex.Lock()
@@ -374,9 +398,7 @@ func (rl *RoutinesController) run_job_1(f func()) {
 		rl.onQueueChanged()
 		rl.lastactivetime = time.Now()
 		rl.queueMutex.Unlock()
-		if rl.chqueuelimit != nil {
-			<-rl.chqueuelimit
-		}
+		rl.qrelease1()
 	}()
 	f()
 }
@@ -451,16 +473,12 @@ func (rl *RoutinesController) push(priortity int, f func()) {
 //
 //	所有优先级不为 1 的情况，都在最外层代码以 “priortity :=” 的形式设置优先级，方便查找
 func (rl *RoutinesController) ConcurCall(priortity int, f func()) error {
-	if rl.chqueuelimit != nil {
-		rl.chqueuelimit <- 1
-	}
+	rl.qrequest1()
 	// chqueuelimit 阻塞期间 stopped 可能会改变
 	stopped := <-rl.stop
 	rl.stop <- stopped
 	if stopped {
-		if rl.chqueuelimit != nil {
-			<-rl.chqueuelimit
-		}
+		rl.qrelease1()
 		return ErrQueueClosed
 	}
 	rl.queueMutex.Lock()
@@ -470,26 +488,20 @@ func (rl *RoutinesController) ConcurCall(priortity int, f func()) error {
 }
 
 func (rl *RoutinesController) CallLast2Only(f func()) error {
-	if rl.chqueuelimit != nil {
-		rl.chqueuelimit <- 1
-	}
+	rl.qrequest1()
 	// chqueuelimit 阻塞期间 stopped 可能会改变
 	stopped := <-rl.stop
 	rl.stop <- stopped
 	if stopped {
 		// 取消 push，清除站位标记
-		if rl.chqueuelimit != nil {
-			<-rl.chqueuelimit
-		}
+		rl.qrelease1()
 		return ErrQueueClosed
 	}
 	rl.queueMutex.Lock()
 	defer rl.queueMutex.Unlock()
 	if rl.queueCount >= 2 {
 		// 取消 push，清除站位标记
-		if rl.chqueuelimit != nil {
-			<-rl.chqueuelimit
-		}
+		rl.qrelease1()
 		return nil
 	}
 	rl.push(1, f)
