@@ -344,9 +344,14 @@ func (rl *RoutinesController) run() {
 		}
 		mutex.Unlock()
 	}()
+	ncpu := runtime.GOMAXPROCS(0)
+	timesharing := (rl.concurlimitCount - ncpu) / ncpu
 	wait_new_job := time.NewTimer(math.MaxInt64)
 	defer wait_new_job.Stop()
 	for rl.run_job(wait_new_job) {
+		if timesharing > 0 {
+			time.Sleep(time.Duration(timesharing))
+		}
 	}
 }
 
@@ -391,6 +396,7 @@ func (rl *RoutinesController) run_job_1(f func()) {
 	rl.lastactivetime = time.Now()
 	rl.queueMutex.Unlock()
 	defer func() {
+		rl.qrelease1()
 		rl.queueMutex.Lock()
 		rl.loginfo()
 		rl.queueCount--
@@ -398,7 +404,6 @@ func (rl *RoutinesController) run_job_1(f func()) {
 		rl.onQueueChanged()
 		rl.lastactivetime = time.Now()
 		rl.queueMutex.Unlock()
-		rl.qrelease1()
 	}()
 	f()
 }

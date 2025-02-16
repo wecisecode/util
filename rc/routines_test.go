@@ -1,6 +1,7 @@
 package rc_test
 
 import (
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -121,4 +122,24 @@ func TestRC3(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+}
+
+func TestRC4(t *testing.T) {
+	runtime.GOMAXPROCS(1)
+	var wg sync.WaitGroup
+	rc := rc.NewRoutinesControllerLimit("", 3, 10)
+	st := time.Now()
+	for i := 1; i <= 1000000; i++ {
+		wg.Add(1)
+		n := i
+		rc.ConcurCall(1, func() {
+			defer wg.Done()
+			logger.Info(n, "start")
+			logger.Info(n, "C", rc.ConcurCount(), "Q", rc.QueueCount())
+			logger.Info(n, "end")
+		})
+		logger.Info(n, "pushed")
+	}
+	wg.Wait()
+	logger.Info(time.Since(st))
 }
