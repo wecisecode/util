@@ -152,6 +152,9 @@ func (rl *RoutinesController) SetConcurQueueLimit(ConcurrencyLimitCount, QueueLi
 	// 重新设置 rl.concurlimitCount 后，超出限制的已运行协程会自动停止
 	rl.concurlimitCount = newLimitCount
 	if QueueLimitCount > 0 {
+		if QueueLimitCount < newLimitCount*2 {
+			QueueLimitCount = newLimitCount * 2
+		}
 		// 限制 队列插入
 		if rl.chqueuelimit == nil {
 			// 新建限制队列
