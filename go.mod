@@ -2,8 +2,6 @@ module github.com/wecisecode/util
 
 go 1.22
 
-retract [v0.0.1, v0.0.7]
-
 require (
 	github.com/fatih/color v1.18.0
 	github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62
