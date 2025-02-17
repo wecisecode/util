@@ -2,7 +2,7 @@ module github.com/wecisecode/util
 
 go 1.22
 
-toolchain go1.22.0
+retract [v0.0.1, v0.0.7]
 
 require (
 	github.com/fatih/color v1.18.0
