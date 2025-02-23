@@ -791,7 +791,7 @@ func (mc *mConfig) onChanged() {
 	mc.merge()
 	mc.changehandlers.IterCb(func(key int64, ch *mChangeHandler) {
 		mc.log.Debug(mc.Option().String(), "notify on config changed to", ch.name)
-		ch.proc()
+		go ch.proc()
 	})
 }
 

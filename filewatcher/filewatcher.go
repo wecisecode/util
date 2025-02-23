@@ -3,8 +3,9 @@ package filewatcher
 import (
 	"io/fs"
 	"os"
-	"sync"
 	"time"
+
+	"github.com/wecisecode/util/cmap"
 )
 
 type PollWatchInfo struct {
@@ -12,45 +13,49 @@ type PollWatchInfo struct {
 	callbacks []func(file string, err error)
 }
 
-var filewatcher_mutex sync.Mutex
-var filewatcher = map[string]*PollWatchInfo{}
+var filewatcher = cmap.New[string, *PollWatchInfo]()
+var filechange = make(chan string, 1)
 
-func PollingWatchFile(file string, ncb func(file string, err error)) error {
-	filewatcher_mutex.Lock()
-	defer filewatcher_mutex.Unlock()
-	newfilewatcher := false
-	pwi := filewatcher[file]
-	if pwi == nil {
-		pwi = &PollWatchInfo{}
-		filewatcher[file] = pwi
-		newfilewatcher = true
-	}
-	pwi.callbacks = append(pwi.callbacks, ncb)
-	forcecb := ncb
-	var fcheck func()
-	fcheck = func() {
-		nfi, err := os.Stat(file)
-		if forcecb != nil {
-			// 新注册的回调函数
-			forcecb(file, err)
-			forcecb = nil
-			if !newfilewatcher {
-				// 重复定义，不再重复开启轮询时钟，也不更新缓存状态
-				return
-			}
-		} else {
-			ofi := pwi.fileinfo
-			if nfi == nil && ofi != nil || nfi != nil && (ofi == nil || !nfi.ModTime().Equal(ofi.ModTime()) || nfi.Size() != ofi.Size()) {
-				for _, cb := range pwi.callbacks {
-					cb(file, err)
+func init() {
+	go func() {
+		t := time.NewTicker(1 * time.Second)
+		for {
+			select {
+			case <-t.C:
+				filechange <- ""
+			case file := <-filechange:
+				if file == "" {
+					filewatcher.IterCb(checkfilechange)
+				} else {
+					checkfilechange(file, filewatcher.GetIFPresent(file))
 				}
 			}
 		}
-		// 更新缓存状态，开启轮询时钟
-		pwi.fileinfo = nfi
-		time.AfterFunc(1*time.Second, fcheck)
+	}()
+}
+
+func checkfilechange(file string, pwi *PollWatchInfo) {
+	nfi, err := os.Stat(file)
+	ofi := pwi.fileinfo
+	if nfi == nil && ofi != nil || nfi != nil && (ofi == nil || !nfi.ModTime().Equal(ofi.ModTime()) || nfi.Size() != ofi.Size()) {
+		for _, cb := range pwi.callbacks {
+			go cb(file, err)
+		}
 	}
-	fcheck()
+	// 更新缓存状态，开启轮询时钟
+	pwi.fileinfo = nfi
+}
+
+func PollingWatchFile(file string, ncb func(file string, err error)) error {
+	pwi, _ := filewatcher.GetWithNew(file, func() (*PollWatchInfo, error) {
+		return &PollWatchInfo{}, nil
+	})
+	pwi.callbacks = append(pwi.callbacks, ncb)
+	_, err := os.Stat(file)
+	go ncb(file, err)
+	if err != nil {
+		return err
+	}
 	// fsnotify 这个Watcher不好使，文件改名后再改回来就监测不到了，文件变化实时性要求不高的情况下，通过轮询方式监测更靠谱
 	// watcher, err := fsnotify.NewWatcher()
 	// if err != nil {
