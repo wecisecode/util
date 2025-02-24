@@ -14,21 +14,15 @@ type PollWatchInfo struct {
 }
 
 var filewatcher = cmap.New[string, *PollWatchInfo]()
-var filechange = make(chan string, 1)
 
 func init() {
 	go func() {
-		t := time.NewTicker(1 * time.Second)
+		t := time.NewTimer(1 * time.Second)
 		for {
 			select {
 			case <-t.C:
-				filechange <- ""
-			case file := <-filechange:
-				if file == "" {
-					filewatcher.IterCb(checkfilechange)
-				} else {
-					checkfilechange(file, filewatcher.GetIFPresent(file))
-				}
+				filewatcher.IterCb(checkfilechange)
+				t.Reset(1 * time.Second)
 			}
 		}
 	}()
@@ -52,7 +46,7 @@ func PollingWatchFile(file string, ncb func(file string, err error)) error {
 	})
 	pwi.callbacks = append(pwi.callbacks, ncb)
 	_, err := os.Stat(file)
-	go ncb(file, err)
+	ncb(file, err)
 	if err != nil {
 		return err
 	}
