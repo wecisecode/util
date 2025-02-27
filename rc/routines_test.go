@@ -12,6 +12,7 @@ import (
 
 func TestRC(t *testing.T) {
 	var wg sync.WaitGroup
+	var testnilpanic *testing.T
 	rc := rc.NewRoutinesControllerLimit("", 1, 2)
 	logger.Info(1)
 	wg.Add(1)
@@ -20,6 +21,7 @@ func TestRC(t *testing.T) {
 		logger.Info(1, "s")
 		time.Sleep(3 * time.Second)
 		logger.Info(1, "e")
+		testnilpanic.Fail()
 	})
 	logger.Info(2)
 	wg.Add(1)
@@ -40,6 +42,7 @@ func TestRC(t *testing.T) {
 	logger.Info("S")
 	rc.SetConcurrencyLimitCount(3)
 	wg.Wait()
+	time.Sleep(10 * time.Second)
 }
 
 func TestRC0(t *testing.T) {

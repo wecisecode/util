@@ -1,5 +1,9 @@
 package rc
 
+import (
+	ulog "github.com/wecisecode/util/logger"
+)
+
 type logger interface {
 	Trace(args ...interface{})
 	Debug(args ...interface{})
@@ -8,4 +12,4 @@ type logger interface {
 	Error(args ...interface{})
 }
 
-var Logger logger
+var Logger logger = ulog.DefaultLogger()

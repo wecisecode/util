@@ -9,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/wecisecode/util/merrs"
 )
 
 var mutex sync.Mutex
@@ -412,6 +414,14 @@ func (rl *RoutinesController) run_job_1(f func()) {
 		rl.onQueueChanged()
 		rl.lastactivetime = time.Now()
 		rl.queueMutex.Unlock()
+	}()
+	defer func() {
+		x := recover()
+		if x != nil {
+			if Logger != nil {
+				Logger.Error(merrs.NewError(x))
+			}
+		}
 	}()
 	f()
 }
