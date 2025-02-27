@@ -286,7 +286,11 @@ func (mc *mConfig) load() Configure {
 	mc.loaded = true
 	err := mc.loading()
 	if err != nil {
-		mc.log.Warn(mc.name, err)
+		if os.IsNotExist(err) {
+			mc.log.Debug(mc.name, err)
+		} else {
+			mc.log.Warn(mc.name, err)
+		}
 	}
 	return mc
 }
