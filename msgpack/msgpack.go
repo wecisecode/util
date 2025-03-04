@@ -50,3 +50,35 @@ func Decode(data []byte, v interface{}) error {
 
 	return err
 }
+
+func EncodeString(v interface{}) (string, error) {
+	bs, e := Encode(v)
+	return string(bs), e
+}
+
+func DecodeString(s string, v interface{}) error {
+	return Decode([]byte(s), v)
+}
+
+func MustEncode(v interface{}) []byte {
+	bs, e := Encode(v)
+	if e != nil {
+		panic(e)
+	}
+	return bs
+}
+
+func MustDecode(bs []byte, v interface{}) {
+	e := Decode(bs, v)
+	if e != nil {
+		panic(e)
+	}
+}
+
+func MustEncodeString(v interface{}) string {
+	return string(MustEncode(v))
+}
+
+func MustDecodeString(s string, v interface{}) {
+	MustDecode([]byte(s), v)
+}
