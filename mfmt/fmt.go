@@ -20,6 +20,8 @@ const (
 	EB
 )
 
+var reBytes = regexp.MustCompile(`^(\d+)\s*(.*)$`)
+
 // 支持的单位：
 // "K", "KB",
 // "M", "MB",
@@ -39,8 +41,7 @@ func ParseBytesCount(s string) int64 {
 		sign = -1
 		s = s[1:]
 	}
-	regx := regexp.MustCompile(`^(\d+)\s*(.*)$`)
-	ss := regx.FindStringSubmatch(s)
+	ss := reBytes.FindStringSubmatch(s)
 	if len(ss) < 3 {
 		return 0
 	}
@@ -141,6 +142,8 @@ func FormatDuration(td time.Duration) (ret string) {
 	return
 }
 
+var reDuration = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(\D+)`)
+
 // 默认单位为毫秒，可识别的单位包括：
 // "d", "day", "days", "天",
 // "h", "hour", "hours", "点", "时", "小时",
@@ -159,8 +162,7 @@ func ParseDuration(s string) time.Duration {
 		sign = -1
 		s = s[1:]
 	}
-	regx := regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(\D+)`)
-	sss := regx.FindAllStringSubmatch(s, -1)
+	sss := reDuration.FindAllStringSubmatch(s, -1)
 	d := int64(0)
 	for _, ss := range sss {
 		if len(ss) != 3 {
