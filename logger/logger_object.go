@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -30,10 +29,9 @@ type Configure interface {
 type Logger struct {
 	option      *Option
 	lc          sync.Mutex
-	depth       int
-	fileoutpath string
 	bfasmu      sync.RWMutex
 	bfAppenders map[string]*bfappender.BufferedFileAppender
+	setting     Setting // 代码设置的选项，优先于option
 }
 
 func New(opt ...*Option) *Logger {
@@ -42,61 +40,6 @@ func New(opt ...*Option) *Logger {
 }
 
 var DefaultLogsDir = filepath.Join("/", "opt", "matrix", "var", "logs")
-
-// [log]              ; 日志配置参数
-// level=trace        ; 日志级别 trace，debug，info，warn，error，fatal，默认 trace
-// console=true       ; 是否控制台输出，默认 true
-// color=true         ; 控制台输出是否根据级别区分颜色，默认 true
-// consolelevel=info  ; 控制台显示级别，-1 跟随主级别定义，默认 info
-// format=            ; 默认 yyyy-MM-dd HH:mm:ss.SSSSSS [pid] [level] file:line msg
-// eol=\r\n           ; 默认 \n
-// file=              ; /opt/matrix/var/logs/<app>/log.log，默认不输出文件
-// size=5m            ; 尺寸滚动，默认 5MB
-// unit=              ; deprecated:
-// count=20           ; 保留数量，默认 20
-// dialy=             ; deprecated: false 相当于 scroll=-1， true 相当于 scroll=24h 或 1天
-// scroll=1天         ; 时间滚动 scroll，覆盖 dialy 设置，默认 1 天
-// expire=14d         ; 保留时间，默认 14 天
-func (log *Logger) WithConfig(mcfg Configure, keyprefix ...string) *Logger {
-	mcfg.OnChange(func() {
-		scroll := time.Duration(0)
-		if daily := mcfg.GetString(cfgkey(keyprefix, "daily"), ""); daily != "" {
-			if cast.ToBool(daily) {
-				scroll = 24 * time.Hour
-			} else {
-				scroll = -1
-			}
-		}
-		bsunit := int64(1)
-		if unit := mcfg.GetString(cfgkey(keyprefix, "unit"), ""); unit != "" {
-			bsunit = mfmt.ParseBytesCount("1" + unit)
-		}
-		format := func(s string) (rs string) {
-			e := json.Unmarshal([]byte(`"`+s+`"`), &rs)
-			if e != nil {
-				rs = s
-			}
-			return
-		}
-		logfilepath := mcfg.GetString(cfgkey(keyprefix, "file"), "")
-		if len(logfilepath) > 0 && !filepath.IsAbs(logfilepath) {
-			dir := mcfg.GetString(cfgkey(keyprefix, "dir"), DefaultLogsDir)
-			logfilepath = filepath.Join(dir, logfilepath)
-		}
-		log.SetConsole(mcfg.GetBool(cfgkey(keyprefix, "console"), true))
-		log.SetColor(mcfg.GetBool(cfgkey(keyprefix, "color"), true))
-		log.SetConsoleLevel(mcfg.GetString(cfgkey(keyprefix, "consolelevel"), LevelINFO))
-		log.SetLevel(mcfg.GetString(cfgkey(keyprefix, "level"), LevelTRACE))
-		log.SetFormat(format(mcfg.GetString(cfgkey(keyprefix, "format"), "")), format(mcfg.GetString(cfgkey(keyprefix, "eol"), "")))
-		log.SetRollingFile("",
-			logfilepath,
-			mcfg.GetDuration(cfgkey(keyprefix, "scroll"), scroll),
-			mcfg.GetBytsCount(cfgkey(keyprefix, "size"), 0)*bsunit,
-			mcfg.GetDuration(cfgkey(keyprefix, "expire"), 0),
-			mcfg.GetInt(cfgkey(keyprefix, "count"), 0))
-	})
-	return log
-}
 
 func cfgkey(keyprefixs []string, key string) (cfgkey string) {
 	if len(keyprefixs) == 0 {
@@ -135,7 +78,16 @@ var DefaultLogFileOption = &bfappender.Option{
 // ScrollBySize        int64         // 滚动尺寸，-1 无限，0 默认 5MB
 // ScrollKeepTime      time.Duration // 滚动文件保留最长时间，-1 不留，math.MaxInt64 长期保留，0 默认 14天
 // ScrollKeepCount     int           // 滚动文件保留最多数量，-1 不留，math.MaxInt64 长期保留，0 默认 20
-func (l *Logger) SetRollingFile(module string, filepath string, ScrollByTime time.Duration, ScrollBySize int64, ScrollKeepTime time.Duration, ScrollKeepCount int) {
+func (l *Logger) setRollingFile(module string, filepath string, ScrollByTime time.Duration, ScrollBySize int64, ScrollKeepTime time.Duration, ScrollKeepCount int) {
+	if l.setting.module != nil && *l.setting.module != module ||
+		l.setting.filepath != nil && *l.setting.filepath != filepath ||
+		l.setting.ScrollByTime != nil && *l.setting.ScrollByTime != ScrollByTime ||
+		l.setting.ScrollBySize != nil && *l.setting.ScrollBySize != ScrollBySize ||
+		l.setting.ScrollKeepTime != nil && *l.setting.ScrollKeepTime != ScrollKeepTime ||
+		l.setting.ScrollKeepCount != nil && *l.setting.ScrollKeepCount != ScrollKeepCount {
+		// 代码设置优先
+		return
+	}
 	l.bfasmu.Lock()
 	defer l.bfasmu.Unlock()
 	if l.bfAppenders == nil {
@@ -148,7 +100,7 @@ func (l *Logger) SetRollingFile(module string, filepath string, ScrollByTime tim
 	if filepath == "" {
 		return
 	}
-	l.fileoutpath = filepath
+	l.option.fileoutpath = filepath
 	l.bfAppenders[module] = bfappender.MBufferedFileAppender(filepath, DefaultLogFileOption).WithOption(&bfappender.Option{
 		ScrollByTime:    ScrollByTime,
 		ScrollBySize:    ScrollBySize,
@@ -158,11 +110,11 @@ func (l *Logger) SetRollingFile(module string, filepath string, ScrollByTime tim
 }
 
 func (l *Logger) FileOutPath() string {
-	return l.fileoutpath
+	return l.option.fileoutpath
 }
 
 func (l *Logger) SetDepth(depth int) {
-	l.depth = depth
+	l.option.depth = depth
 }
 
 func (l *Logger) Level() (int32, string) {
@@ -177,7 +129,11 @@ func (l *Logger) ConsoleLevel() int32 {
 	return l.option.ConsoleLevel
 }
 
-func (l *Logger) SetLevel(level interface{}) {
+func (l *Logger) setLevel(level interface{}) {
+	if l.setting.level != nil && l.setting.level != level {
+		// 代码设置优先
+		return
+	}
 	switch lv := level.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		lvl := l.option.level(cast.ToInt32(lv))
@@ -195,7 +151,11 @@ func (l *Logger) SetConsoleOut(consoleout io.Writer) {
 	l.option.Console = consoleout
 }
 
-func (l *Logger) SetConsole(isConsole bool) {
+func (l *Logger) setConsole(isConsole bool) {
+	if l.setting.isConsole != nil && *l.setting.isConsole != isConsole {
+		// 代码设置优先
+		return
+	}
 	if isConsole {
 		l.SetConsoleOut(os.Stdout)
 	} else {
@@ -203,7 +163,11 @@ func (l *Logger) SetConsole(isConsole bool) {
 	}
 }
 
-func (l *Logger) SetConsoleLevel(level interface{}) {
+func (l *Logger) setConsoleLevel(level interface{}) {
+	if l.setting.consolelevel != nil && l.setting.consolelevel != level {
+		// 代码设置优先
+		return
+	}
 	switch lv := level.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		l.option.ConsoleLevel = cast.ToInt32(lv)
@@ -212,7 +176,11 @@ func (l *Logger) SetConsoleLevel(level interface{}) {
 	}
 }
 
-func (l *Logger) SetColor(isColor bool) {
+func (l *Logger) setColor(isColor bool) {
+	if l.setting.isColor != nil && *l.setting.isColor != isColor {
+		// 代码设置优先
+		return
+	}
 	l.option.ConsoleColor = isColor
 }
 
@@ -220,7 +188,12 @@ func (l *Logger) SetLevelAtrribute(id int32, name string, flag string, colours [
 	l.option.SetLevelAtrribute(id, name, flag, colours)
 }
 
-func (l *Logger) SetFormat(fmt string, eol string) {
+func (l *Logger) setFormat(fmt string, eol string) {
+	if l.setting.fmt != nil && *l.setting.fmt != fmt ||
+		l.setting.eol != nil && *l.setting.eol != eol {
+		// 代码设置优先
+		return
+	}
 	l.option.SetFormat(fmt, eol)
 }
 
@@ -308,8 +281,8 @@ func (l *Logger) Printf(format string, a ...interface{}) {
 
 func (lg *Logger) PrintOut(level interface{}, format string, v ...interface{}) bool {
 	var calldepth = 2
-	if lg.depth != 0 {
-		calldepth = lg.depth
+	if lg.option.depth != 0 {
+		calldepth = lg.option.depth
 	}
 	return lg.Output(calldepth+1, castToLevel(level), false, format, v...)
 }

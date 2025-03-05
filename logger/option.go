@@ -17,6 +17,8 @@ type Option struct {
 	formater     *Formater
 	lmux         sync.RWMutex
 	levelMaps    map[int32]*level
+	depth        int
+	fileoutpath  string
 }
 
 var defaultOption = &Option{
@@ -27,7 +29,10 @@ var defaultOption = &Option{
 	true,
 	MFormater("yyyy-MM-dd HH:mm:ss.SSSSSS [pid] [level] module/file:line msg", "\n"),
 	sync.RWMutex{},
-	defaultLevelMaps}
+	defaultLevelMaps,
+	0,
+	"",
+}
 
 func (opt *Option) Merge(aos ...*Option) *Option {
 	oo := &Option{
@@ -39,6 +44,8 @@ func (opt *Option) Merge(aos ...*Option) *Option {
 		nil,
 		sync.RWMutex{},
 		nil,
+		opt.depth,
+		opt.fileoutpath,
 	}
 	oo.SetFormat(opt.formater.format, opt.formater.eol)
 	opt.lmux.RLock()

@@ -12,4 +12,5 @@ type logger interface {
 	Error(args ...interface{})
 }
 
-var Logger logger = ulog.DefaultLogger()
+var defaultlogger = ulog.DefaultLogger()
+var Logger logger = defaultlogger
