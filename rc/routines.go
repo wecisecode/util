@@ -472,11 +472,7 @@ func (rl *RoutinesController) loginfo() {
 	)
 	if rl.lastloginfo != s {
 		if rl.queueCount < WarningQueueSize {
-			if defaultlogger == Logger {
-				Logger.Debug(s)
-			} else {
-				Logger.Info(s)
-			}
+			Logger.Info(s)
 		} else {
 			Logger.Warn(s)
 		}

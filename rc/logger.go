@@ -12,5 +12,10 @@ type logger interface {
 	Error(args ...interface{})
 }
 
-var defaultlogger = ulog.DefaultLogger()
+var defaultlogger = ulog.New()
+
+func init() {
+	defaultlogger.SetConsoleLevel(ulog.ERROR)
+}
+
 var Logger logger = defaultlogger
