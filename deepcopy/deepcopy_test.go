@@ -3,9 +3,11 @@ package deepcopy_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wecisecode/util/deepcopy"
+	"github.com/wecisecode/util/msgpack"
 )
 
 type TestStructA struct {
@@ -99,4 +101,24 @@ C:   A: 2
 p: `, fmt.Sprint(z))
 	assert.Equal(t, `github.com/wecisecode/util/deepcopy_test/TestStructB:
   p: string`, fmt.Sprint(receiver))
+}
+
+func TestDeepCopyMap(t *testing.T) {
+	m1 := map[string]any{}
+	for i := 0; i < 1000000; i++ {
+		m1[fmt.Sprint("X", i)] = fmt.Sprint("A", i)
+	}
+	st := time.Now()
+	m2 := deepcopy.DeepCopy(m1).(map[string]any)
+	fmt.Println("deepcopy", time.Since(st))
+	assert.Equal(t, msgpack.MustEncodeString(m1), msgpack.MustEncodeString(m2))
+	st = time.Now()
+	m3 := map[string]any{}
+	for k, v := range m1 {
+		m3[k] = v
+	}
+	fmt.Println("duplicate", time.Since(st))
+	assert.Equal(t, msgpack.MustEncodeString(m1), msgpack.MustEncodeString(m3))
+	// deepcopy 2.687850414s
+	// duplicate 694.957856ms
 }
