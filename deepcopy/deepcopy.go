@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cast"
 )
 
+// 将 Map 中的信息映射到对象
 func MapToObject(m map[string]interface{}, obj interface{}, ignoreTypeMatchError bool) error {
 	objp := reflect.ValueOf(obj)
 	if objp.Kind() != reflect.Ptr {
@@ -49,7 +50,7 @@ func toObject(m map[string]interface{}, objv reflect.Value, ignoreTypeMatchError
 			// fmt.Println(key, "[", ovft.Kind(), ",", tag, "]", ovf.Interface(), " -> ")
 			v, b := m[key]
 			if b {
-				vv, e := CastValue(ovft, v)
+				vv, e := castValue(ovft, v)
 				if e == nil {
 					ovf.Set(vv)
 				} else if !ignoreTypeMatchError {
@@ -68,13 +69,19 @@ type DeepCopyInterface interface {
 
 type DeepCopyOption int
 
-// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体的处理方式
 const (
-	DC_OVPA_COPY_ADDRESS      DeepCopyOption = iota // 不新建对象，保留原对象，不做深度复制处理
-	DC_OVPA_SKIP_PRIVATE_ATTR                       // 新建对象，跳过私有属性的处理
-	DC_OVPA_PANIC                                   // 异常退出
+	// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体的处理方式:
+	// 不新建对象，保留原对象，不做深度复制处理
+	DC_OVPA_COPY_ADDRESS DeepCopyOption = iota
+	// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体的默认处理方式:
+	// 新建对象，跳过私有属性的处理
+	DC_OVPA_SKIP_PRIVATE_ATTR
+	// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体的处理方式:
+	// 异常退出
+	DC_OVPA_PANIC
 )
 
+// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体，指定默认处理方式，内置默认为新建对象，跳过私有属性的处理
 var DC_OVPA_DEFAULT = DC_OVPA_SKIP_PRIVATE_ATTR
 
 type Receiver map[string]map[string]string
@@ -133,7 +140,7 @@ func DeepCopy(src interface{}, option ...interface{}) interface{} {
 	opt, receiver := dcoption(option...)
 
 	// Recursively copy the original.
-	CopyRecursive(original, cpy, opt, receiver)
+	copyRecursive(original, cpy, opt, receiver)
 
 	if opt == DC_OVPA_PANIC && len(receiver) > 0 {
 		panic(fmt.Sprint(receiver))
@@ -157,7 +164,7 @@ func DeepCopyE(src interface{}, option ...interface{}) (interface{}, error) {
 	opt, receiver := dcoption(option...)
 
 	// Recursively copy the original.
-	e := CopyRecursiveE(original, cpy, opt, receiver)
+	e := copyRecursiveE(original, cpy, opt, receiver)
 	if e != nil {
 		return nil, e
 	}
@@ -187,15 +194,15 @@ func DeepCopy2(src interface{}, dest interface{}, option ...interface{}) error {
 	opt, receiver := dcoption(option...)
 
 	// Recursively copy the original.
-	e := CopyRecursiveE(org, cpy, opt, receiver)
+	e := copyRecursiveE(org, cpy, opt, receiver)
 	if e != nil {
 		return e
 	}
 	return nil
 }
 
-func CopyRecursiveE(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) error {
-	CopyRecursive(original, cpy, opt, receiver)
+func copyRecursiveE(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) error {
+	copyRecursive(original, cpy, opt, receiver)
 	if len(receiver) > 0 {
 		bs, _ := json.MarshalIndent(receiver, "", "  ")
 		return fmt.Errorf("%s%s", "DeepCopy encounter with private field, change it to public or implement DeepCopy interface\n", string(bs))
@@ -203,9 +210,9 @@ func CopyRecursiveE(original, cpy reflect.Value, opt DeepCopyOption, receiver ma
 	return nil
 }
 
-// CopyRecursive does the actual copying of the interface. It currently has
+// copyRecursive does the actual copying of the interface. It currently has
 // limited support for what it can handle. Add as needed.
-func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) {
+func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) {
 	// check for implement deepcopy.Interface
 	if original.CanInterface() {
 		tm, b := original.Type().MethodByName("DeepCopy")
@@ -251,7 +258,7 @@ func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 			return
 		}
 		cpy.Set(reflect.New(originalValue.Type()))
-		CopyRecursive(originalValue, cpy.Elem(), opt, receiver)
+		copyRecursive(originalValue, cpy.Elem(), opt, receiver)
 
 	case reflect.Interface:
 		// If this is a nil, don't do anything
@@ -263,7 +270,7 @@ func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 
 		// Get the value by calling Elem().
 		copyValue := reflect.New(originalValue.Type()).Elem()
-		CopyRecursive(originalValue, copyValue, opt, receiver)
+		copyRecursive(originalValue, copyValue, opt, receiver)
 		cpy.Set(copyValue)
 
 	case reflect.Struct:
@@ -307,7 +314,7 @@ func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 			}
 		}
 		for _, i := range fieldidx {
-			CopyRecursive(original.Field(i), cpy.Field(i), opt, receiver)
+			copyRecursive(original.Field(i), cpy.Field(i), opt, receiver)
 		}
 
 	case reflect.Slice:
@@ -317,7 +324,7 @@ func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 		// Make a new slice and copy each element.
 		cpy.Set(reflect.MakeSlice(original.Type(), original.Len(), original.Cap()))
 		for i := 0; i < original.Len(); i++ {
-			CopyRecursive(original.Index(i), cpy.Index(i), opt, receiver)
+			copyRecursive(original.Index(i), cpy.Index(i), opt, receiver)
 		}
 
 	case reflect.Map:
@@ -328,7 +335,7 @@ func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 		for _, key := range original.MapKeys() {
 			originalValue := original.MapIndex(key)
 			copyValue := reflect.New(originalValue.Type()).Elem()
-			CopyRecursive(originalValue, copyValue, opt, receiver)
+			copyRecursive(originalValue, copyValue, opt, receiver)
 			copyKey := DeepCopy(key.Interface())
 			cpy.SetMapIndex(reflect.ValueOf(copyKey), copyValue)
 		}
@@ -338,7 +345,7 @@ func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 	}
 }
 
-func CastValue(vt reflect.Type, vi interface{}) (vv reflect.Value, ee error) {
+func castValue(vt reflect.Type, vi interface{}) (vv reflect.Value, ee error) {
 	switch vt.Kind() {
 	case reflect.Bool:
 		v, e := cast.ToStringE(vi)
@@ -403,7 +410,7 @@ func CastValue(vt reflect.Type, vi interface{}) (vv reflect.Value, ee error) {
 	default:
 		pfinfo := map[string]map[string]string{}
 		vv = reflect.New(vt).Elem()
-		CopyRecursive(reflect.ValueOf(vi), vv, DC_OVPA_DEFAULT, pfinfo)
+		copyRecursive(reflect.ValueOf(vi), vv, DC_OVPA_DEFAULT, pfinfo)
 		if len(pfinfo) > 0 {
 			bs, _ := json.MarshalIndent(pfinfo, "", "  ")
 			s := fmt.Sprint("DeepCopy encounter with private field, change it to public or implement DeepCopy interface\n", string(bs))
