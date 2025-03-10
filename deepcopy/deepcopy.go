@@ -76,9 +76,6 @@ const (
 	// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体的默认处理方式:
 	// 新建对象，跳过私有属性的处理
 	DC_OVPA_SKIP_PRIVATE_ATTR
-	// 针对包含私有属性，同时又没有提供DeepCopy接口的结构体的处理方式:
-	// 异常退出
-	DC_OVPA_PANIC
 )
 
 // 针对包含私有属性，同时又没有提供DeepCopy接口的结构体，指定默认处理方式，内置默认为新建对象，跳过私有属性的处理
@@ -123,7 +120,7 @@ func dcoption(option ...interface{}) (DeepCopyOption, Receiver) {
 // in an interface{}.  The returned value will need to be asserted to the
 // correct type.
 // 可选参数：
-// option    可指定 DeepCopyOption 选项，DC_OVPA_COPY_ADDRESS，DC_OVPA_SKIP_PRIVATE_ATTR，DC_OVPA_PANIC
+// option    可指定 DeepCopyOption 选项，DC_OVPA_COPY_ADDRESS，DC_OVPA_SKIP_PRIVATE_ATTR
 // receiver  可指定 map[string]string，收集包含私有属性的处理对象相关信息
 func DeepCopy(src interface{}, option ...interface{}) interface{} {
 	if src == nil {
@@ -140,11 +137,8 @@ func DeepCopy(src interface{}, option ...interface{}) interface{} {
 	opt, receiver := dcoption(option...)
 
 	// Recursively copy the original.
-	copyRecursive(original, cpy, opt, receiver)
+	CopyRecursive(original, cpy, opt, receiver)
 
-	if opt == DC_OVPA_PANIC && len(receiver) > 0 {
-		panic(fmt.Sprint(receiver))
-	}
 	// Return the copy as an interface.
 	return cpy.Interface()
 }
@@ -164,7 +158,7 @@ func DeepCopyE(src interface{}, option ...interface{}) (interface{}, error) {
 	opt, receiver := dcoption(option...)
 
 	// Recursively copy the original.
-	e := copyRecursiveE(original, cpy, opt, receiver)
+	e := CopyRecursive(original, cpy, opt, receiver)
 	if e != nil {
 		return nil, e
 	}
@@ -172,6 +166,9 @@ func DeepCopyE(src interface{}, option ...interface{}) (interface{}, error) {
 	return cpy.Interface(), nil
 }
 
+// 可选参数：
+// option    可指定 DeepCopyOption 选项，DC_OVPA_COPY_ADDRESS，DC_OVPA_SKIP_PRIVATE_ATTR
+// receiver  可指定 map[string]string，收集包含私有属性的处理对象相关信息
 func DeepCopy2(src interface{}, dest interface{}, option ...interface{}) error {
 	if src == nil || dest == nil {
 		return errors.New("src和dest都不能为空")
@@ -194,25 +191,29 @@ func DeepCopy2(src interface{}, dest interface{}, option ...interface{}) error {
 	opt, receiver := dcoption(option...)
 
 	// Recursively copy the original.
-	e := copyRecursiveE(org, cpy, opt, receiver)
+	e := CopyRecursive(org, cpy, opt, receiver)
 	if e != nil {
 		return e
 	}
 	return nil
 }
 
-func copyRecursiveE(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) error {
-	copyRecursive(original, cpy, opt, receiver)
+func CopyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) error {
+	if receiver == nil {
+		receiver = map[string]map[string]string{}
+	}
+	copyRecursiveInner(original, cpy, opt, receiver)
 	if len(receiver) > 0 {
 		bs, _ := json.MarshalIndent(receiver, "", "  ")
-		return fmt.Errorf("%s%s", "DeepCopy encounter with private field, change it to public or implement DeepCopy interface\n", string(bs))
+		e := fmt.Errorf("%s%s", "DeepCopy encounter with private field, change it to public or implement DeepCopy interface\n", string(bs))
+		return e
 	}
 	return nil
 }
 
-// copyRecursive does the actual copying of the interface. It currently has
+// copyRecursiveInner does the actual copying of the interface. It currently has
 // limited support for what it can handle. Add as needed.
-func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) {
+func copyRecursiveInner(original, cpy reflect.Value, opt DeepCopyOption, receiver map[string]map[string]string) {
 	// check for implement deepcopy.Interface
 	if original.CanInterface() {
 		tm, b := original.Type().MethodByName("DeepCopy")
@@ -258,7 +259,7 @@ func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 			return
 		}
 		cpy.Set(reflect.New(originalValue.Type()))
-		copyRecursive(originalValue, cpy.Elem(), opt, receiver)
+		copyRecursiveInner(originalValue, cpy.Elem(), opt, receiver)
 
 	case reflect.Interface:
 		// If this is a nil, don't do anything
@@ -270,7 +271,7 @@ func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 
 		// Get the value by calling Elem().
 		copyValue := reflect.New(originalValue.Type()).Elem()
-		copyRecursive(originalValue, copyValue, opt, receiver)
+		copyRecursiveInner(originalValue, copyValue, opt, receiver)
 		cpy.Set(copyValue)
 
 	case reflect.Struct:
@@ -310,11 +311,10 @@ func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 				cpy.Set(original)
 				return
 			case DC_OVPA_SKIP_PRIVATE_ATTR:
-			case DC_OVPA_PANIC:
 			}
 		}
 		for _, i := range fieldidx {
-			copyRecursive(original.Field(i), cpy.Field(i), opt, receiver)
+			copyRecursiveInner(original.Field(i), cpy.Field(i), opt, receiver)
 		}
 
 	case reflect.Slice:
@@ -324,7 +324,7 @@ func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 		// Make a new slice and copy each element.
 		cpy.Set(reflect.MakeSlice(original.Type(), original.Len(), original.Cap()))
 		for i := 0; i < original.Len(); i++ {
-			copyRecursive(original.Index(i), cpy.Index(i), opt, receiver)
+			copyRecursiveInner(original.Index(i), cpy.Index(i), opt, receiver)
 		}
 
 	case reflect.Map:
@@ -335,7 +335,7 @@ func copyRecursive(original, cpy reflect.Value, opt DeepCopyOption, receiver map
 		for _, key := range original.MapKeys() {
 			originalValue := original.MapIndex(key)
 			copyValue := reflect.New(originalValue.Type()).Elem()
-			copyRecursive(originalValue, copyValue, opt, receiver)
+			copyRecursiveInner(originalValue, copyValue, opt, receiver)
 			copyKey := DeepCopy(key.Interface())
 			cpy.SetMapIndex(reflect.ValueOf(copyKey), copyValue)
 		}
@@ -410,7 +410,7 @@ func castValue(vt reflect.Type, vi interface{}) (vv reflect.Value, ee error) {
 	default:
 		pfinfo := map[string]map[string]string{}
 		vv = reflect.New(vt).Elem()
-		copyRecursive(reflect.ValueOf(vi), vv, DC_OVPA_DEFAULT, pfinfo)
+		copyRecursiveInner(reflect.ValueOf(vi), vv, DC_OVPA_DEFAULT, pfinfo)
 		if len(pfinfo) > 0 {
 			bs, _ := json.MarshalIndent(pfinfo, "", "  ")
 			s := fmt.Sprint("DeepCopy encounter with private field, change it to public or implement DeepCopy interface\n", string(bs))
