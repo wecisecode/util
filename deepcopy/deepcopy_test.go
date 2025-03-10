@@ -117,8 +117,15 @@ func TestDeepCopyMap(t *testing.T) {
 	for k, v := range m1 {
 		m3[k] = v
 	}
-	fmt.Println("duplicate", time.Since(st))
+	fmt.Println("simplecopy", time.Since(st))
 	assert.Equal(t, msgpack.MustEncodeString(m1), msgpack.MustEncodeString(m3))
-	// deepcopy 2.687850414s
-	// duplicate 694.957856ms
+	m4 := map[string]any{}
+	for k, v := range m1 {
+		m4[k] = deepcopy.DeepCopy(v)
+	}
+	fmt.Println("hybridcopy", time.Since(st))
+	assert.Equal(t, msgpack.MustEncodeString(m1), msgpack.MustEncodeString(m4))
+	// deepcopy 2.704696364s
+	// simplecopy 821.017374ms
+	// hybridcopy 4.795438561s
 }
