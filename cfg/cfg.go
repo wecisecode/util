@@ -185,12 +185,13 @@ func init() {
 	SetDefaultAppName(appname)
 }
 
-func SetDefaultAppName(appname string) {
+func SetDefaultAppName(appname string) Configure {
 	DefaultAppName = appname
 	CommandArgs = MConfig(CFGOPTION_ARGS)
 	Environs = MConfig(CFGOPTION_ENVS)
 	DefaultConfig = MConfig(CwdAppConf(DefaultAppName), CFGOPTION_ENVS, CFGOPTION_ARGS)
 	DefaultConfig.withLogger(logger.New().WithConfig(DefaultConfig), false)
+	return DefaultConfig
 }
 
 var clog = &mConfLog{}
