@@ -99,10 +99,6 @@ func (co *CfgOption) String() string {
 	return s
 }
 
-var absAppPath, _ = filepath.Abs(os.Args[0])
-var DefaultAppName = regexp.MustCompile(`^(?:.*\/)?([^\/]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
-var DefaultAppDir = filepath.Dir(absAppPath)
-
 var DEFAULT_OPTION = &CfgOption{"cfg", baseCfgType, nil, nil, nil, nil, 0}
 
 //	func LogConf() *CfgOption {
@@ -126,6 +122,9 @@ var DEFAULT_OPTION = &CfgOption{"cfg", baseCfgType, nil, nil, nil, nil, 0}
 func CwdAppConf(appname string) *CfgOption {
 	if appname == "" {
 		appname = DefaultAppName
+	}
+	if appname == "" {
+		return nil
 	}
 	return GetIniFileCfgOption(filepath.Join(fmt.Sprint(appname, ".conf")))
 }
@@ -177,7 +176,17 @@ var CommandArgs Configure
 var Environs Configure
 var DefaultConfig Configure
 
+var absAppPath, _ = filepath.Abs(os.Args[0])
+var DefaultAppDir = filepath.Dir(absAppPath)
+var DefaultAppName = ""
+
 func init() {
+	appname := regexp.MustCompile(`^(?:.*\/)?([^\/]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
+	SetDefaultAppName(appname)
+}
+
+func SetDefaultAppName(appname string) {
+	DefaultAppName = appname
 	CommandArgs = MConfig(CFGOPTION_ARGS)
 	Environs = MConfig(CFGOPTION_ENVS)
 	DefaultConfig = MConfig(CwdAppConf(DefaultAppName), CFGOPTION_ENVS, CFGOPTION_ARGS)
@@ -222,7 +231,9 @@ func NewConfig(option ...*CfgOption) Configure {
 	}
 	cfg := newConfig(DEFAULT_OPTION)
 	for i := 0; i < len(option); i++ {
-		cfg.subConfigs = append(cfg.subConfigs, cachedConfigure(option[i], false))
+		if option[i] != nil {
+			cfg.subConfigs = append(cfg.subConfigs, cachedConfigure(option[i], false))
+		}
 	}
 	return cfg
 }
