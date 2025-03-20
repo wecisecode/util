@@ -168,8 +168,11 @@ type Configure interface {
 	WithLogger(log ConfLog) Configure
 	withLogger(log ConfLog, clearbuffer bool) Configure
 	WithETCD(cli etcd.Client) Configure
-	Load() Configure
 	LogError(e error)
+	// 加载当前配置
+	LoadConfigure() Configure
+	Reset(subConfigs ...Configure) Configure
+	SubConfigs() []Configure
 }
 
 var CommandArgs Configure
@@ -181,15 +184,16 @@ var DefaultAppDir = filepath.Dir(absAppPath)
 var DefaultAppName = ""
 
 func init() {
+	CommandArgs = MConfig(CFGOPTION_ARGS)
+	Environs = MConfig(CFGOPTION_ENVS)
+	DefaultConfig = MConfig(CFGOPTION_ENVS, CFGOPTION_ARGS)
 	appname := regexp.MustCompile(`^(?:.*\/)?([^\/]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
 	SetDefaultAppName(appname)
 }
 
 func SetDefaultAppName(appname string) Configure {
 	DefaultAppName = appname
-	CommandArgs = MConfig(CFGOPTION_ARGS)
-	Environs = MConfig(CFGOPTION_ENVS)
-	DefaultConfig = MConfig(CwdAppConf(DefaultAppName), CFGOPTION_ENVS, CFGOPTION_ARGS)
+	DefaultConfig.Reset(MConfig(CwdAppConf(DefaultAppName), CFGOPTION_ENVS, CFGOPTION_ARGS).SubConfigs()...)
 	DefaultConfig.withLogger(logger.New().WithConfig(DefaultConfig), false)
 	return DefaultConfig
 }
@@ -223,7 +227,7 @@ func MConfig(option ...*CfgOption) Configure {
 	if len(option) == 0 {
 		return DefaultConfig
 	}
-	return NewConfig(option...).Load()
+	return NewConfig(option...).Reset()
 }
 
 func NewConfig(option ...*CfgOption) Configure {
@@ -239,13 +243,20 @@ func NewConfig(option ...*CfgOption) Configure {
 	return cfg
 }
 
-func (mc *mConfig) Load() Configure {
-	mc.load()
+func (mc *mConfig) Reset(subConfigs ...Configure) Configure {
+	if len(subConfigs) > 0 {
+		mc.subConfigs = subConfigs
+	}
+	mc.LoadConfigure()
 	for _, cfg := range mc.subConfigs {
-		mc.Merge(cfg.load())
+		mc.Merge(cfg.LoadConfigure())
 	}
 	mc.merge()
 	return mc
+}
+
+func (mc *mConfig) SubConfigs() []Configure {
+	return mc.subConfigs
 }
 
 type mChangeHandler struct {
@@ -256,7 +267,7 @@ type mConfig struct {
 	name           string
 	stamp          time.Time
 	option         *CfgOption
-	subConfigs     []*mConfig
+	subConfigs     []Configure
 	chetcdclient   chan etcd.Client
 	etcdclient     etcd.Client
 	stopped        chan struct{}
@@ -277,7 +288,7 @@ func newConfig(co *CfgOption) (mc *mConfig) {
 		name:           co.Name,
 		stamp:          time.Now(),
 		option:         co,
-		subConfigs:     []*mConfig{},
+		subConfigs:     []Configure{},
 		basecfg:        sortedmap.NewLinkedMap(),
 		mergeConfigure: sortedmap.NewLinkedMap(),
 		setcfg:         sortedmap.NewLinkedMap(),
@@ -291,7 +302,7 @@ func newConfig(co *CfgOption) (mc *mConfig) {
 	return
 }
 
-func (mc *mConfig) load() Configure {
+func (mc *mConfig) LoadConfigure() Configure {
 	if mc.option.Type == baseCfgType || mc.loaded {
 		return mc
 	}
