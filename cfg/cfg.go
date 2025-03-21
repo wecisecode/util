@@ -140,6 +140,7 @@ type Configure interface {
 	// 通过程序设置改变配置信息
 	Set(key string, value interface{})
 	Get(key string, defaultvalue ...interface{}) interface{}
+	GetMapping(key string, defaultvalue ...map[string]string) (m map[string]string)
 	GetStrings(key string, defaultvalue ...string) []string
 	GetString(key string, defaultvalue ...string) string
 	GetInt(key string, defaultvalue ...int) int
