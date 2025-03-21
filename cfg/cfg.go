@@ -573,14 +573,14 @@ func (mc *mConfig) GetBool(key string, defaultvalue ...bool) bool {
 	switch v := v.(type) {
 	case []interface{}:
 		if len(v) > 0 {
-			return cast.ToBool(v[len(v)-1])
+			return cast.ToBool(v[len(v)-1]) || cast.ToString(v[len(v)-1]) == key
 		}
 	case []string:
 		if len(v) > 0 {
-			return cast.ToBool(v[len(v)-1])
+			return cast.ToBool(v[len(v)-1]) || v[len(v)-1] == key
 		}
 	}
-	return cast.ToBool(v)
+	return cast.ToBool(v) || cast.ToString(v) == key
 }
 
 func (mc *mConfig) GetBytsCount(key string, defaultvalue ...interface{}) (nv int64) {
