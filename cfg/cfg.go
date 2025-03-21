@@ -493,6 +493,22 @@ func (mc *mConfig) Get(key string, defaultvalue ...interface{}) interface{} {
 	return v
 }
 
+func (mc *mConfig) GetMapping(key string, defaultvalue ...map[string]string) (m map[string]string) {
+	m = map[string]string{}
+	keys := strings.Split(key, "|")
+	for _, k := range keys {
+		mc.allConfig.Fetch(func(key interface{}, value interface{}) bool {
+			sk := cast.ToString(key)
+			if strings.HasPrefix(sk, k+".") {
+				sk = sk[len(k)+1:]
+				m[sk] = cast.ToString(value)
+			}
+			return true
+		})
+	}
+	return m
+}
+
 func (mc *mConfig) GetStrings(key string, defaultvalue ...string) []string {
 	v, ok := mc.get(key)
 	if !ok {
