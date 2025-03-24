@@ -32,7 +32,15 @@ func (e *ErrorClass) NewError(infos ...any) error {
 	return e.New(append(infos, 1)...)
 }
 
-// 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]string, Map, map[string]any, SSTuples, SSTuple, [2]string
+type SSTuples [][2]string
+type SSTuple [2]string
+type SSMap map[string]string
+type SSMaps []map[string]string
+type Map map[string]any
+type Maps []map[string]any
+type Module string
+
+// 参数类型可以是 Module, msg string, cause error, SSMaps, SSMap, map[string]string, Map, map[string]any, SSTuples, SSTuple, [2]string
 // depth int
 func (e *ErrorClass) New(infos ...any) error {
 	if len(infos) > 0 {
@@ -44,6 +52,7 @@ func (e *ErrorClass) New(infos ...any) error {
 			}
 		}
 	}
+	module := ""
 	depth := 1
 	cause := []error{}
 	infossms := SSMaps{}
@@ -52,6 +61,8 @@ func (e *ErrorClass) New(infos ...any) error {
 			continue
 		}
 		switch info := info.(type) {
+		case Module:
+			module = string(info)
 		case int:
 			depth += info
 		case string:
@@ -149,7 +160,7 @@ func (e *ErrorClass) New(infos ...any) error {
 			infossms = append(infossms, SSMap{fmt.Sprint("info", i): cast.ToString(info)})
 		}
 	}
-	return e.NewWith("", cause, infossms, depth)
+	return e.NewWith(module, cause, infossms, depth)
 }
 
 func (e *ErrorClass) NewCause(cause ...error) error {
@@ -167,13 +178,6 @@ func (e *ErrorClass) Parent() *ErrorClass {
 func (e *ErrorClass) String() string {
 	return e.gec.String()
 }
-
-type SSTuples [][2]string
-type SSTuple [2]string
-type SSMap map[string]string
-type SSMaps []map[string]string
-type Map map[string]any
-type Maps []map[string]any
 
 // inform map数组，用于显示一些有序的key-value信息，martix.SSMaps{{"k1","v1"},{"k2":"v2"}...}，
 // stacks_depth >=0 自动生成调用栈信息，stacks_depth < 0 不打印调用栈，
