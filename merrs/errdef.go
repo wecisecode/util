@@ -34,7 +34,10 @@ var (
 )
 
 // 默认错误类型，错误类型显示为相关模块名，用于简化错误处理
-var merror = NewErrorClass("ModuleReplaceType", nil, errors.SetData(errors.DataKey(ErrorDataKeyNoType), true))
+var (
+	merror = NewErrorClass("ModuleReplaceType", nil, errors.SetData(errors.DataKey(ErrorDataKeyNoType), true))
+	MErr   = NewErrorClass("Error", nil)
+)
 
 // 已经存在
 var ExistError = NewErrorClass("ExistError", nil)
@@ -53,8 +56,6 @@ var ClosedError = NewErrorClass("CloseError", nil)
 
 // 内部使用，随时可能改变
 var (
-	NormalError = NewErrorClass("Error", nil)
-
 	UnsupportedError = NewErrorClass("Unsupported", nil)
 
 	ServiceCallError    = NewErrorClass("ServiceCall", nil)

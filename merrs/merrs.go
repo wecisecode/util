@@ -266,7 +266,12 @@ func (e *Error) Error() string {
 	}
 	etype := e.ErrorType
 	if e.ErrorNoType {
-		etype = "[" + e.ErrorModule + "]"
+		if e.ErrorModule != "" {
+			etype = "[" + e.ErrorModule + "]"
+		}
+	}
+	if etype == "" || etype == "[]" || etype == "nil" {
+		etype = "Error"
 	}
 	message := strings.TrimRight(e.ErrorMsg, "\t\r\n ")
 	if message != "" {
@@ -368,7 +373,7 @@ func gerror(err error) *errors.Error {
 		}
 		ec := getErrorClass(me.ErrorType)
 		if ec == nil {
-			ec = ErrProgram
+			ec = MErr
 		}
 
 		se := ec.gec.NewWith(
@@ -399,7 +404,11 @@ func mError(err error) (e *Error, isMError bool) {
 		return me, true
 	}
 	if se, ok := err.(*errors.Error); ok {
-		typ := se.Class().String()
+		ec := se.Class()
+		typ := ""
+		if ec != nil {
+			typ = ec.String()
+		}
 		msg := se.WrappedErr().Error()
 		return &Error{
 			ErrorType:   typ,
@@ -440,7 +449,7 @@ func ErrorType(err error) string {
 	case *errors.Error:
 		return e.Class().String()
 	}
-	return ErrProgram.String()
+	return MErr.String()
 }
 
 // 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]any, map[string]any, SSTuples, SSTuple, [2]string
