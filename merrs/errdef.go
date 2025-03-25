@@ -33,8 +33,8 @@ var (
 	SystemError       = pushErrorClass(errors.SystemError)
 )
 
-// 默认错误类型，错误类型显示为相关模块名
-var MErr = NewErrorClass("ModuleReplaceType", nil, errors.SetData(errors.DataKey(ErrorDataKeyNoType), true))
+// 默认错误类型，错误类型显示为相关模块名，用于简化错误处理
+var merror = NewErrorClass("ModuleReplaceType", nil, errors.SetData(errors.DataKey(ErrorDataKeyNoType), true))
 
 // 已经存在
 var ExistError = NewErrorClass("ExistError", nil)

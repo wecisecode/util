@@ -445,15 +445,15 @@ func ErrorType(err error) string {
 
 // 参数类型可以是 msg string, cause error, SSMaps, SSMap, map[string]any, map[string]any, SSTuples, SSTuple, [2]string
 func New(info ...any) error {
-	return MErr.New(append(info, 1)...)
+	return merror.New(append(info, 1)...)
 }
 
 func NewError(info ...any) error {
-	return MErr.New(append(info, 1)...)
+	return merror.New(append(info, 1)...)
 }
 
 func NewCause(cause ...error) error {
-	return MErr.NewWith("", cause, nil, 1)
+	return merror.NewWith("", cause, nil, 1)
 }
 
 func NewWith(module string, err error, inform SSMaps, stacks_depth int) *Error {
@@ -463,7 +463,7 @@ func NewWith(module string, err error, inform SSMaps, stacks_depth int) *Error {
 	if stacks_depth >= 0 {
 		stacks_depth += 1
 	}
-	return MErr.NewWith(module, []error{err}, inform, stacks_depth).(*Error)
+	return merror.NewWith(module, []error{err}, inform, stacks_depth).(*Error)
 }
 
 type stack []frame
