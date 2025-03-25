@@ -24,7 +24,7 @@ type ErrorClass struct {
 	gec *errors.ErrorClass
 }
 
-func (e *ErrorClass) NewPlain(args ...interface{}) error {
+func (e *ErrorClass) NewPlain(args ...any) error {
 	return e.NewWith("", []error{fmt.Errorf("%s", fmt.Sprint(args...))}, nil, 1)
 }
 
@@ -353,55 +353,6 @@ func getErrorClass(name string) (ec *ErrorClass) {
 	defer errorclassesmutex.RUnlock()
 	return errorclasses[name]
 }
-
-var (
-	NotImplementedError = pushErrorClass(errors.NotImplementedError)
-	ProgrammerError     = pushErrorClass(errors.ProgrammerError)
-	PanicError          = pushErrorClass(errors.PanicError)
-
-	SyscallError        = pushErrorClass(errors.SyscallError)
-	ErrnoError          = pushErrorClass(errors.ErrnoError)
-	NetworkError        = pushErrorClass(errors.NetworkError)
-	UnknownNetworkError = pushErrorClass(errors.UnknownNetworkError)
-	AddrError           = pushErrorClass(errors.AddrError)
-	InvalidAddrError    = pushErrorClass(errors.InvalidAddrError)
-	NetOpError          = pushErrorClass(errors.NetOpError)
-	NetParseError       = pushErrorClass(errors.NetParseError)
-	DNSError            = pushErrorClass(errors.DNSError)
-	DNSConfigError      = pushErrorClass(errors.DNSConfigError)
-	IOError             = pushErrorClass(errors.IOError)
-	EOF                 = pushErrorClass(errors.EOF)
-	ClosedPipeError     = pushErrorClass(errors.ClosedPipeError)
-	NoProgressError     = pushErrorClass(errors.NoProgressError)
-	ShortBufferError    = pushErrorClass(errors.ShortBufferError)
-	ShortWriteError     = pushErrorClass(errors.ShortWriteError)
-	UnexpectedEOFError  = pushErrorClass(errors.UnexpectedEOFError)
-	ContextError        = pushErrorClass(errors.ContextError)
-	ContextCanceled     = pushErrorClass(errors.ContextCanceled)
-	ContextTimeout      = pushErrorClass(errors.ContextTimeout)
-
-	HierarchicalError = pushErrorClass(errors.HierarchicalError)
-	SystemError       = pushErrorClass(errors.SystemError)
-)
-
-var MErr = NewErrorClass("ModuleReplaceType", nil, errors.SetData(errors.DataKey(ErrorDataKeyNoType), true))
-
-var NormalError = NewErrorClass("Error", nil)
-var ErrProgram = NewErrorClass("Program", nil)
-var ErrParams = NewErrorClass("Params", nil)
-var ServiceCallError = NewErrorClass("ServiceCall", nil)
-var ServiceChangedError = NewErrorClass("ServiceChanged", nil)
-var ServiceTimeoutError = NewErrorClass("[Timeout]", nil)
-var ServicePartError = NewErrorClass("ServicePart", nil)
-var ServiceProcError = NewErrorClass("ServiceProc", nil)
-var ServiceOutputError = NewErrorClass("ServiceOutput", nil)
-var UnsupportedError = NewErrorClass("Unsupported", nil)
-var CollisionError = NewErrorClass("Collision", nil)
-
-var UninitedError = NewErrorClass("UninitedError", nil)
-var ClosedError = NewErrorClass("CloseError", nil)
-var ExistError = NewErrorClass("ExistError", nil)
-var NotExistError = NewErrorClass("NotExistError", nil)
 
 // 转为errors.Error，用于分类判断
 func gerror(err error) *errors.Error {
