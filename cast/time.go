@@ -3,6 +3,7 @@ package cast
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/wecisecode/util/cast/dateparse"
@@ -32,7 +33,7 @@ import (
 // 2255-03-15 00:00:00.000000000    0 + 9e18
 
 // 默认时间范围 北京时间 1973-03-03 17:46:40 ~ 2255-03-15 00:00:00
-func TimeAssume(ctime int64) (time.Time, error) {
+func timeAssume(ctime int64) (time.Time, error) {
 	if ctime >= 1e8 && ctime <= 9e9 {
 		// 秒值
 		return time.Unix(0, ctime*1e9), nil
@@ -50,6 +51,40 @@ func TimeAssume(ctime int64) (time.Time, error) {
 	}
 }
 
+func timeAssumeLayout(ctime int64, layout string) (time.Time, error) {
+	var t int64
+	switch strings.ToLower(layout) {
+	case "d", "day", "days", "天":
+		t = ctime * 24 * int64(time.Hour)
+	case "h", "hour", "hours", "时", "小时":
+		t = ctime * int64(time.Hour)
+	case "m", "min", "minute", "minutes", "分", "分钟":
+		t = ctime * int64(time.Minute)
+	case "s", "sec", "second", "seconds", "秒":
+		t = ctime * int64(time.Second)
+	case "ms", "millisecond", "milliseconds", "毫秒":
+		t = ctime * int64(time.Millisecond)
+	case "us", "µs", "微秒":
+		t = ctime * int64(time.Microsecond)
+	case "ns", "纳秒":
+		t = ctime * int64(time.Nanosecond)
+	default:
+		return time.Time{}, merrs.NewError(fmt.Sprintf("unknown time format %s", layout))
+	}
+	return time.Unix(0, t), nil
+}
+
+func timeAssumeLayouts(ctime int64, layouts ...string) (t time.Time, err error) {
+	for _, layout := range layouts {
+		t, err = timeAssumeLayout(ctime, layout)
+		if err == nil {
+			return t, nil
+		}
+	}
+	t, err = timeAssume(ctime)
+	return
+}
+
 // 默认时间范围 北京时间 1973-03-03 17:46:40 ~ 2255-03-15 00:00:00
 func ToUnixNano(ctime int64) (int64, error) {
 	t, e := TimeAssume(ctime)
@@ -59,11 +94,16 @@ func ToUnixNano(ctime int64) (int64, error) {
 	return t.UnixNano(), nil
 }
 
-func IntToTime[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64](v I) (t time.Time, err error) {
-	return TimeAssume(int64(v))
+func toInt64[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64](v I) int64 {
+	return int64(v)
 }
 
-func IntsToTimes[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64](vs []I) (ts []time.Time, err error) {
+// 默认时间范围 北京时间 1973-03-03 17:46:40 ~ 2255-03-15 00:00:00
+func TimeAssume[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64](v I) (t time.Time, err error) {
+	return timeAssume(toInt64(v))
+}
+
+func TimeAssumes[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | float32 | float64](vs []I) (ts []time.Time, err error) {
 	for _, av := range vs {
 		t, e := TimeAssume(int64(av))
 		if e != nil {
@@ -74,7 +114,15 @@ func IntsToTimes[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | 
 	return
 }
 
-func ToDateTimeE(v interface{}, layouts ...string) (time.Time, error) {
+// 当 v 为数值时，根据数值范围确定时间精度为纳秒、微秒、毫秒、秒值，只能返回 北京时间 1973-03-03 17:46:40 ~ 2255-03-15 00:00:00
+// 当 v 为字符串时，可解析多种默认格式，可通过 layouts 指定更多的时间格式
+// v 为数值时，可通过 layouts 明确指定数值精度为纳秒 ns、微秒 us、毫秒 ms、秒 s、分 m、时 h、天 d
+func ToDatetime(v any, layouts ...string) time.Time {
+	t, _ := ToDatetimeE(v, layouts...)
+	return t
+}
+
+func ToDatetimeE(v any, layouts ...string) (time.Time, error) {
 	var t time.Time
 	var e error
 	switch vv := v.(type) {
@@ -86,20 +134,28 @@ func ToDateTimeE(v interface{}, layouts ...string) (time.Time, error) {
 			}
 		}
 		t, e = dateparse.ParseLocal(vv)
+	case uint8:
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
+	case uint16:
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case uint32:
-		t, e = IntToTime(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case uint64:
-		t, e = TimeAssume(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
+	case int8:
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
+	case int16:
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case int32:
-		t, e = TimeAssume(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case int64:
-		t, e = TimeAssume(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case float32:
-		t, e = TimeAssume(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case float64:
-		t, e = TimeAssume(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case int:
-		t, e = TimeAssume(int64(vv))
+		t, e = timeAssumeLayouts(int64(vv), layouts...)
 	case time.Time:
 		t = vv
 	default:
@@ -111,7 +167,7 @@ func ToDateTimeE(v interface{}, layouts ...string) (time.Time, error) {
 	return t, nil
 }
 
-func ToDateTimes(v interface{}) (ts []time.Time, err error) {
+func ToDateTimes(v any) (ts []time.Time, err error) {
 	var t time.Time
 	var e error
 	switch vv := v.(type) {
@@ -124,43 +180,43 @@ func ToDateTimes(v interface{}) (ts []time.Time, err error) {
 			ts = append(ts, t)
 		}
 	case []uint32:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
 		ts = append(ts, ats...)
 	case []uint64:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
 		ts = append(ts, ats...)
 	case []int32:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
 		ts = append(ts, ats...)
 	case []int64:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
 		ts = append(ts, ats...)
 	case []float32:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
 		ts = append(ts, ats...)
 	case []float64:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
 		ts = append(ts, ats...)
 	case []int:
-		ats, e := IntsToTimes(vv)
+		ats, e := TimeAssumes(vv)
 		if e != nil {
 			return nil, e
 		}
@@ -170,7 +226,7 @@ func ToDateTimes(v interface{}) (ts []time.Time, err error) {
 			ts = append(ts, av)
 		}
 	default:
-		t, e = ToDateTimeE(v)
+		t, e = ToDatetimeE(v)
 		if e != nil {
 			return nil, e
 		}
@@ -179,7 +235,7 @@ func ToDateTimes(v interface{}) (ts []time.Time, err error) {
 	return ts, nil
 }
 
-func ToUnixNanos(v interface{}) (ts []int64, err error) {
+func ToUnixNanos(v any) (ts []int64, err error) {
 	var t time.Time
 	var e error
 	switch vv := v.(type) {
@@ -252,7 +308,7 @@ func ToUnixNanos(v interface{}) (ts []int64, err error) {
 			ts = append(ts, av.UnixNano())
 		}
 	default:
-		t, e = ToDateTimeE(v)
+		t, e = ToDatetimeE(v)
 		if e != nil {
 			return nil, e
 		}
