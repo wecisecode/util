@@ -1,43 +1,121 @@
 package mid
 
 import (
-	"sync"
-	"time"
+	"fmt"
+	"net"
+	"os"
+	"strings"
 )
 
-// 确保每次取出的本地纳秒时间值不同，主要用于不支持NanoSecond的操作系统
-// time.Time 表示的时间精度比NanoSecond更小，所以有可能 t.Equal(lvt) == false 但是 t.UnixNano() == lvt.UnixNano()
-type TimeStamp time.Time
-
-var lvt_mutex sync.Mutex
-var lvtns = time.Now().UnixNano()
-
-// 确保每次取出的本地纳秒时间值不同，主要用于不支持NanoSecond的操作系统
-// time.Time 表示的时间精度比NanoSecond更小，所以有可能 t.Equal(lvt) == false 但是 t.UnixNano() == lvt.UnixNano()
-func MTimeStamp() TimeStamp {
-	lvt_mutex.Lock()
-	t := time.Now().UnixNano()
-	if t <= lvtns {
-		t = lvtns + 1
+func Hostname() string {
+	hn, e := os.Hostname()
+	if e != nil {
+		return "[" + e.Error() + "]"
 	}
-	lvtns = t
-	lvt_mutex.Unlock()
-	return MTimeStampV(t)
+	return hn
 }
 
-func MTimeStampV(vtun int64) TimeStamp {
-	return TimeStamp(time.Unix(0, vtun))
+func HardwareAddr(ip string) string {
+	ss := "00:00:00:00:00:00"
+	s := ""
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		if s = iface.HardwareAddr.String(); s != "" && len(s) <= len(ss) {
+			addrs, _ := iface.Addrs()
+			for _, addr := range addrs {
+				if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+					if ipnet.IP.To4().String() == ip {
+						return s
+					}
+				}
+			}
+			if ss == "00:00:00:00:00:00" {
+				ss = s
+			}
+		}
+	}
+	if s == "" {
+		s = GetLocalIP()
+		var a, b, c, d int
+		fmt.Sscanf(s+"\000", "%d.%d.%d.%d\000", &a, &b, &c, &d)
+		ss = fmt.Sprintf("FF:FF:%02x:%02x:%02x:%02x", a, b, c, d)
+	}
+	return ss
 }
 
-func (t TimeStamp) UnixNano() int64 {
-	return time.Time(t).UnixNano()
+// GetLocalIP returns the local IP address or loopback IP.
+func GetLocalIP() string {
+	return localHostIP()
 }
 
-func (t TimeStamp) Time() time.Time {
-	return time.Time(t)
+const loopbackIP = "127.0.0.1"
+
+func GetLocalIPs() []string {
+	ips := []string{}
+	addrs, _ := net.InterfaceAddrs()
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				ips = append(ips, ipnet.IP.String())
+			}
+		}
+	}
+	if len(ips) == 0 {
+		return []string{loopbackIP}
+	}
+	return ips
 }
 
-// 确保每次取出的本地纳秒时间值不同，主要用于不支持NanoSecond的操作系统
-func UnixNano() int64 {
-	return MTimeStamp().UnixNano()
+// LocalIP returns the local IP address.
+func localHostIP() string {
+	ss := loopbackIP
+	sshconn := os.Getenv("SSH_CONNECTION")
+	if sshconn != "" {
+		sshconns := strings.Split(sshconn, " ")
+		if len(sshconns) == 4 {
+			ss = sshconns[2]
+		}
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ss
+	}
+	fs := []string{}
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				if ipnet.IP.String() == ss {
+					return ss
+				}
+				fs = append(fs, ipnet.IP.String())
+			}
+		}
+	}
+	if len(fs) > 0 {
+		return fs[0]
+	}
+	return ss
+}
+
+func IsLocalIP(ip string) bool {
+	if loopbackIP == ip {
+		return true
+	}
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				if ipnet.IP.String() == ip {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
