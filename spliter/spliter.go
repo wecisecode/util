@@ -20,6 +20,7 @@ type ExcludeFlag struct {
 	RegxBegin *regexp.Regexp
 	RegxEnd   *regexp.Regexp
 	Nestable  bool
+	Remove    bool // 剔除排除内容，如注释信息
 }
 
 var (
@@ -58,12 +59,36 @@ func MQLSplit(text string) (mqls []string) {
 	}
 }
 
+// 分号分隔多条MQL语句
+// 支持 begin batch - end
+// 已知问题：begin batch - end 内，如果单条语句中包含 end 必须用双引号括起来，如：begin batch select "end" from table end
+func MQLSplitClean(text string) (mqls []string) {
+	mqs := NewMQLSpliterWithOption(bufio.NewReader(strings.NewReader(text)), regx_delimeter_comma, []*ExcludeFlag{
+		{Begin: `"`, End: `"`, Escape: `\`},
+		{Begin: `'`, End: `'`},
+		{Begin: `--`, End: "\n", Remove: true},
+		{Begin: `//`, End: "\n", Remove: true},
+		{Begin: `/*`, End: `*/`, Remove: true},
+		{PrevChar: regx_batch_prev, RegxBegin: regx_batch_begin, RegxEnd: regx_batch_end, NextChar: regx_batch_next, Nestable: true},
+	})
+	for {
+		s, b, _ := mqs.Next()
+		if !b {
+			return
+		}
+		mqls = append(mqls, s)
+	}
+}
+
 type MQLSpliter struct {
-	// 参数
+	// 参数变量
+
 	reader        bufio.Reader
 	regxdelimeter *regexp.Regexp
 	excludeflags  []*ExcludeFlag
+
 	// 过程变量
+
 	i              int // 当前字符位置
 	n              int // 当前行号
 	ret            string
@@ -76,10 +101,9 @@ type MQLSpliter struct {
 // 支持 begin batch - end
 // 已知问题：begin batch - end 内，如果单条语句中包含 end 必须用双引号括起来，如：begin batch select "end" from table end
 func NewMQLSpliter(reader io.Reader) *MQLSpliter {
-	return &MQLSpliter{
-		reader:        *bufio.NewReader(reader),
-		regxdelimeter: regx_delimeter_comma,
-		excludeflags: []*ExcludeFlag{
+	return NewMQLSpliterWithOption(reader,
+		regx_delimeter_comma,
+		[]*ExcludeFlag{
 			{Begin: `"`, End: `"`, Escape: `\`},
 			{Begin: `'`, End: `'`},
 			{Begin: `--`, End: "\n"},
@@ -87,6 +111,17 @@ func NewMQLSpliter(reader io.Reader) *MQLSpliter {
 			{Begin: `/*`, End: `*/`},
 			{PrevChar: regx_batch_prev, RegxBegin: regx_batch_begin, RegxEnd: regx_batch_end, NextChar: regx_batch_next, Nestable: true},
 		},
+	)
+}
+
+// 分号分隔多条MQL语句
+// 支持 begin batch - end
+// 已知问题：begin batch - end 内，如果单条语句中包含 end 必须用双引号括起来，如：begin batch select "end" from table end
+func NewMQLSpliterWithOption(reader io.Reader, regxdelimeter *regexp.Regexp, excludeflags []*ExcludeFlag) *MQLSpliter {
+	return &MQLSpliter{
+		reader:        *bufio.NewReader(reader),
+		regxdelimeter: regxdelimeter,
+		excludeflags:  excludeflags,
 		//
 		n:              1,
 		inexcludeflags: []*ExcludeFlag{},
@@ -147,6 +182,10 @@ func (me *MQLSpliter) NextMQL() (mql string, fromline, toline, fromchar, tochar 
 	me.ret = ""
 	gotchar := false
 	for i := 0; ; i++ {
+		var inexcludeflag *ExcludeFlag
+		if len(me.inexcludeflags) > 0 {
+			inexcludeflag = me.inexcludeflags[len(me.inexcludeflags)-1]
+		}
 		if gotchar {
 			s := me.nextChar()
 			if s == "" {
@@ -156,19 +195,21 @@ func (me *MQLSpliter) NextMQL() (mql string, fromline, toline, fromchar, tochar 
 				return me.ret, fromline, me.n, fromchar, me.i, true, nil
 			}
 			me.n += strings.Count(s, "\n")
-			me.ret += s
+			if inexcludeflag == nil || !inexcludeflag.Remove {
+				me.ret += s
+			}
 		}
 		gotchar = true
-		var inexcludeflag *ExcludeFlag
-		if len(me.inexcludeflags) > 0 {
-			inexcludeflag = me.inexcludeflags[len(me.inexcludeflags)-1]
+		if inexcludeflag != nil {
 			if len(inexcludeflag.Escape) > 0 {
 				if s := me.preloadChars(len(inexcludeflag.Escape)); s == inexcludeflag.Escape {
 					//skip one char
 					me.i += len(inexcludeflag.Escape)
 					s += me.nextChar()
 					me.n += strings.Count(s, "\n")
-					me.ret += s
+					if !inexcludeflag.Remove {
+						me.ret += s
+					}
 					gotchar = false
 					continue // 跳过转义字符，继续扫描
 				}
@@ -177,7 +218,9 @@ func (me *MQLSpliter) NextMQL() (mql string, fromline, toline, fromchar, tochar 
 				if s := me.preloadChars(len(inexcludeflag.End)); s == inexcludeflag.End && me.lookaheadEndFlag(len(inexcludeflag.End), inexcludeflag) {
 					me.i += len(inexcludeflag.End)
 					me.n += strings.Count(s, "\n")
-					me.ret += s
+					if !inexcludeflag.Remove {
+						me.ret += s
+					}
 					gotchar = false
 					me.inexcludeflags = me.inexcludeflags[:len(me.inexcludeflags)-1]
 					continue // 排除内容完毕，返回上一层，继续扫描
@@ -187,7 +230,9 @@ func (me *MQLSpliter) NextMQL() (mql string, fromline, toline, fromchar, tochar 
 				if len(smatch) > 0 && me.lookaheadEndFlag(len(smatch), inexcludeflag) {
 					me.i += len(smatch)
 					me.n += strings.Count(smatch, "\n")
-					me.ret += smatch
+					if !inexcludeflag.Remove {
+						me.ret += smatch
+					}
 					gotchar = false
 					me.inexcludeflags = me.inexcludeflags[:len(me.inexcludeflags)-1]
 					continue // 排除内容完毕，返回上一层，继续扫描
@@ -213,7 +258,9 @@ func (me *MQLSpliter) NextMQL() (mql string, fromline, toline, fromchar, tochar 
 								me.inexcludeflags = append(me.inexcludeflags, excludeflag)
 								me.i += len(excludeflag.Begin)
 								me.n += strings.Count(smatch, "\n")
-								me.ret += smatch
+								if !excludeflag.Remove {
+									me.ret += smatch
+								}
 								gotchar = false
 								break // 进入排除内容，继续扫描
 							}
@@ -223,7 +270,9 @@ func (me *MQLSpliter) NextMQL() (mql string, fromline, toline, fromchar, tochar 
 								me.inexcludeflags = append(me.inexcludeflags, excludeflag)
 								me.i += len(smatch)
 								me.n += strings.Count(smatch, "\n")
-								me.ret += smatch
+								if !excludeflag.Remove {
+									me.ret += smatch
+								}
 								gotchar = false
 								break // 进入排除内容，继续扫描
 							}
