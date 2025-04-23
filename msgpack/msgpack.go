@@ -4,6 +4,8 @@ import (
 	"bytes"
 
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/wecisecode/util/cast"
+	"github.com/wecisecode/util/merrs"
 )
 
 // msgpack BUG：解码过程，结构中多个空值时，第二个匿名指针空值会自动被初始化，所以不能使用多个匿名指针
@@ -20,7 +22,18 @@ import (
 // 必须明确类型，接口类型不能正确编码
 // 隐藏属性会被忽略
 // 最多只能有一个匿名属性，更多的匿名属性会被忽略
-func Encode(v interface{}) ([]byte, error) {
+func Encode(v interface{}) (bs []byte, err error) {
+	defer func() {
+		x := recover()
+		if x != nil {
+			switch e := x.(type) {
+			case error:
+				err = merrs.New(e)
+			default:
+				err = merrs.New(cast.ToString(e))
+			}
+		}
+	}()
 	enc := msgpack.GetEncoder()
 
 	var buf bytes.Buffer
@@ -29,22 +42,34 @@ func Encode(v interface{}) ([]byte, error) {
 	enc.UseCompactFloats(false)
 	enc.UseCompactInts(false)
 	enc.SetSortMapKeys(true)
-	err := enc.Encode(v)
-	b := buf.Bytes()
+	err = enc.Encode(v)
+	bs = buf.Bytes()
 
 	msgpack.PutEncoder(enc)
 
 	if err != nil {
 		return nil, err
 	}
-	return b, err
+	return bs, err
 }
 
-func Decode(data []byte, v interface{}) error {
+func Decode(data []byte, v interface{}) (err error) {
+	defer func() {
+		x := recover()
+		if x != nil {
+			switch e := x.(type) {
+			case error:
+				err = merrs.New(e)
+			default:
+				err = merrs.New(cast.ToString(e))
+			}
+		}
+	}()
+
 	dec := msgpack.GetDecoder()
 
 	dec.Reset(bytes.NewReader(data))
-	err := dec.Decode(v)
+	err = dec.Decode(v)
 
 	msgpack.PutDecoder(dec)
 
