@@ -64,14 +64,14 @@ var cfgOptionId = int32(0x10000)
 func GetLogConfCfgOption(filename string) (co *CfgOption) {
 	co = getCfgOptionByKey("m:file:/" + filename)
 	co.Type = OLOG_CONF
-	co.Values = append(co.Values, filename)
+	co.Values = []string{filename}
 	return
 }
 
 func GetIniFileCfgOption(filename string) (co *CfgOption) {
 	co = getCfgOptionByKey("m:file:/" + filename)
 	co.Type = INI_FILE
-	co.Values = append(co.Values, filename)
+	co.Values = []string{filename}
 	return
 }
 
