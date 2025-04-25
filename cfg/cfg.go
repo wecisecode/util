@@ -367,8 +367,11 @@ func (mc *mConfig) cfgloaded(cfg *CfgInfo, newcfg bool) {
 	for k, v := range *cfg {
 		if v != nil {
 			if k == "" {
+				// 文本配置信息，不会产生后续变化，直接设置基础配置信息即可
 				mc.setbase(k, v)
 			} else {
+				// 来自文件，ETCD等的配置信息，可能产生后续变化，重新设置基础配置信息后需要激活变更事件
+				// 为保证唯一性和一致性，k应与文件或ETCD等的路径相关
 				topt := getCfgOptionByKey(k)
 				tcfg := cachedConfigure(topt, newcfg)
 				if tcfg.basecfg == nil || tcfg.basecfg.String() != v.String() {
