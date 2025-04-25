@@ -75,6 +75,20 @@ func GetIniFileCfgOption(filename string) (co *CfgOption) {
 	return
 }
 
+func GetIniETCDCfgOption(filename string) (co *CfgOption) {
+	co = getCfgOptionByKey("m:etcd:/" + filename)
+	co.Type = INI_ETCD
+	co.Values = []string{filename}
+	return
+}
+
+func GetJsonETCDCfgOption(filename string) (co *CfgOption) {
+	co = getCfgOptionByKey("m:etcd:/" + filename)
+	co.Type = JSON_ETCD
+	co.Values = []string{filename}
+	return
+}
+
 func getCfgOptionByKey(key string) (co *CfgOption) {
 	cfgOptionsmu.Lock()
 	defer cfgOptionsmu.Unlock()
