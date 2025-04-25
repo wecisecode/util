@@ -111,25 +111,7 @@ func (co *CfgOption) String() string {
 	return s
 }
 
-var DEFAULT_OPTION = &CfgOption{"cfg", baseCfgType, nil, nil, nil, nil, 0}
-
-//	func LogConf() *CfgOption {
-//		return GetLogConfCfgOption(filepath.Join(mdir.GetConfDir(), "log.conf"))
-//	}
-//
-//	func AppLogConf(appname string) *CfgOption {
-//		if appname == "" {
-//			appname = DefaultAppName
-//		}
-//		return GetLogConfCfgOption(filepath.Join(mdir.GetConfDir(), appname, "log.conf"))
-//	}
-// func AppConf(appname string) *CfgOption {
-// 	if appname == "" {
-// 		appname = DefaultAppName
-// 	}
-
-// 	return GetIniFileCfgOption(filepath.Join(mdir.GetConfDir(), appname, fmt.Sprint(filepath.Base(appname), ".conf")))
-// }
+var flatingConfigureOption = &CfgOption{"flating_configure", baseCfgType, nil, nil, nil, nil, 0}
 
 func CwdAppConf(appname string) *CfgOption {
 	if appname == "" {
@@ -247,7 +229,7 @@ func NewConfig(option ...*CfgOption) Configure {
 	if len(option) == 0 {
 		return DefaultConfig
 	}
-	cfg := newConfig(DEFAULT_OPTION)
+	cfg := newConfig(flatingConfigureOption)
 	for i := 0; i < len(option); i++ {
 		if option[i] != nil {
 			cfg.subConfigs = append(cfg.subConfigs, cachedConfigure(option[i], false))
