@@ -105,9 +105,7 @@ func (co *CfgOption) String() string {
 		co.id = atomic.AddInt32(&cfgOptionId, 1)
 	}
 	s := co.Name
-	if len(co.Values) == 1 && len(co.Values[0]) > 0 && len(co.Values[0]) < 100 && regexp.MustCompile(`^\S+$`).MatchString(co.Values[0]) {
-		s += ":/" + co.Values[0]
-	} else if len(co.Values) > 0 {
+	if len(co.Values) > 0 {
 		s = fmt.Sprintf("%s:/%X", s, co.id)
 	}
 	return s
