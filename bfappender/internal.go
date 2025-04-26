@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"sync"
@@ -112,12 +112,12 @@ func mBufferedFileAppender(filename string, option *Option) (bfa *bufferedFileAp
 	}
 	// 归档文件列表，按最后修改时间+size+name排序
 	bfa.archivefilenames, bfa.archivefiletime = archiveFiles(filename)
-	fname := path.Base(filename)
-	ext := path.Ext(fname)
+	fname := filepath.Base(filename)
+	ext := filepath.Ext(fname)
 	lastfname := ""
 	lastftime := time.Time{}
 	if len(bfa.archivefilenames) > 0 {
-		if path.Base(bfa.archivefilenames[len(bfa.archivefilenames)-1]) == fname {
+		if filepath.Base(bfa.archivefilenames[len(bfa.archivefilenames)-1]) == fname {
 			if len(bfa.archivefilenames) > 1 {
 				lastfname = bfa.archivefilenames[len(bfa.archivefilenames)-2]
 				lastftime = bfa.archivefiletime[lastfname]
@@ -128,11 +128,11 @@ func mBufferedFileAppender(filename string, option *Option) (bfa *bufferedFileAp
 		}
 	}
 	if len(lastfname) > len(fname) {
-		idx := path.Ext(lastfname[:len(lastfname)-len(ext)])
+		idx := filepath.Ext(lastfname[:len(lastfname)-len(ext)])
 		if len(idx) > 0 && regexp.MustCompile(`^\.\d+$`).MatchString(idx) {
 			bfa.lastScrollIdx, _ = strconv.Atoi(idx[1:])
 		}
-		tim := path.Ext(lastfname[:len(lastfname)-len(ext)-len(idx)])
+		tim := filepath.Ext(lastfname[:len(lastfname)-len(ext)-len(idx)])
 		if len(tim) > 0 && regexp.MustCompile(`^\.\d+$`).MatchString(tim) {
 			bfa.lastScrollTime = tim[1:]
 		}
@@ -351,7 +351,7 @@ func (me *bufferedFileAppender) closefile(flushbufsize int) (writtencount int, e
 }
 
 func (me *bufferedFileAppender) open() (err error) {
-	os.MkdirAll(path.Dir(me.filename), 0777)
+	os.MkdirAll(filepath.Dir(me.filename), 0777)
 	if me.file, err = os.OpenFile(me.filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666); err != nil {
 		return merrs.NewError(err)
 	}
@@ -370,9 +370,9 @@ func (me *bufferedFileAppender) open() (err error) {
 
 func (me *bufferedFileAppender) rename(oldpath, newdir, newfname, newext string) (newpath string, modtime time.Time, err error) {
 	if me.lastScrollIdx == 0 {
-		newpath = path.Join(newdir, fmt.Sprint(newfname, newext))
+		newpath = filepath.Join(newdir, fmt.Sprint(newfname, newext))
 	} else {
-		newpath = path.Join(newdir, fmt.Sprint(newfname, ".", me.lastScrollIdx, newext))
+		newpath = filepath.Join(newdir, fmt.Sprint(newfname, ".", me.lastScrollIdx, newext))
 	}
 	fi, e := os.Stat(newpath)
 	if e == nil {
@@ -395,8 +395,8 @@ func (me *bufferedFileAppender) rename(oldpath, newdir, newfname, newext string)
 }
 
 func (me *bufferedFileAppender) scrolling() (err error) {
-	dir, fname := path.Split(me.filename)
-	ext := path.Ext(fname)
+	dir, fname := filepath.Split(me.filename)
+	ext := filepath.Ext(fname)
 	fname = fname[:len(fname)-len(ext)]
 	timefix := ""
 	if me.option.ScrollByTime > 0 {

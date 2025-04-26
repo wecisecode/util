@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -21,8 +21,8 @@ func last_filename(filename string) string {
 }
 
 func temp_filename(filename string) string {
-	dir, file := path.Split(filename)
-	return path.Join(dir, fmt.Sprint(".", file, ".", mid.MTimeStamp().UnixNano(), ".tmp"))
+	dir, file := filepath.Split(filename)
+	return filepath.Join(dir, fmt.Sprint(".", file, ".", mid.MTimeStamp().UnixNano(), ".tmp"))
 }
 
 func ReadFile(filename string) ([]byte, error) {
@@ -42,7 +42,7 @@ func ReadFile(filename string) ([]byte, error) {
 }
 
 func WriteFile(filename string, content []byte, keeplast bool) error {
-	os.MkdirAll(path.Dir(filename), 0775)
+	os.MkdirAll(filepath.Dir(filename), 0775)
 	tempfn := filename + ".tmp"
 	f, err := os.OpenFile(tempfn, os.O_WRONLY|os.O_CREATE, 0664)
 	if err != nil {
@@ -117,7 +117,7 @@ func (o *ClearFiles) Do() (err error) {
 	})
 
 	for i := 0; len(fis) > o.KeepLast && i < len(fis)-o.KeepLast; {
-		fp := path.Join(o.Dir, fis[i].Name())
+		fp := filepath.Join(o.Dir, fis[i].Name())
 		os.Remove(fp)
 		fis = fis[1:]
 	}

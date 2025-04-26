@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 	"sort"
 	"time"
 )
@@ -62,8 +62,8 @@ func timeFixString(t time.Time, d time.Duration) string {
 }
 
 func archiveFiles(filename string) (afs []string, aft map[string]time.Time) {
-	dir, fname := path.Split(filename)
-	ext := path.Ext(fname)
+	dir, fname := filepath.Split(filename)
+	ext := filepath.Ext(fname)
 	fnbase := fname[:len(fname)-len(ext)]
 	des, _ := os.ReadDir(dir)
 	fis := []fs.FileInfo{}
@@ -87,7 +87,7 @@ func archiveFiles(filename string) (afs []string, aft map[string]time.Time) {
 	})
 	aft = make(map[string]time.Time)
 	for _, fi := range fis {
-		fp := path.Join(dir, fi.Name())
+		fp := filepath.Join(dir, fi.Name())
 		afs = append(afs, fp)
 		aft[fp] = fi.ModTime()
 	}
