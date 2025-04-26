@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -53,10 +53,10 @@ func string2Level(level string) int32 {
 	}
 }
 
-func splitFile(filepath string) (dir, module, file string) {
-	dir, file = path.Split(filepath)
+func splitFile(path string) (dir, module, file string) {
+	dir, file = filepath.Split(path)
 	if dir != "" && dir[len(dir)-1] == '/' {
-		dir, module = path.Split(dir[:len(dir)-1])
+		dir, module = filepath.Split(dir[:len(dir)-1])
 	}
 	return
 }

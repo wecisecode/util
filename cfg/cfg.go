@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -831,7 +830,7 @@ func (mc *mConfig) OnChange(och func()) int64 {
 	}
 	if och != nil {
 		fn := runtime.FuncForPC(reflect.ValueOf(och).Pointer()).Name()
-		name := fmt.Sprint(fn, "[", path.Base(file), ":", line, "]")
+		name := fmt.Sprint(fn, "[", filepath.Base(file), ":", line, "]")
 		key := mid.UnixNano()
 		mc.changehandlers.Set(key, &mChangeHandler{name: name, proc: och})
 		och()

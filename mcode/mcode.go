@@ -3,7 +3,7 @@ package mcode
 import (
 	"bytes"
 	"fmt"
-	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
@@ -14,7 +14,7 @@ func SourceCodeLine() string {
 	if !ok {
 		return ""
 	}
-	return fmt.Sprint(path.Base(f), ":", n)
+	return fmt.Sprint(filepath.Base(f), ":", n)
 }
 
 type routine struct {
