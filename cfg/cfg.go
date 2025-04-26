@@ -167,6 +167,7 @@ type Configure interface {
 	// 加载当前配置
 	LoadConfigure() Configure
 	Reset(subConfigs ...Configure) Configure
+	SubOptions() []*CfgOption
 	SubConfigs() []Configure
 }
 
@@ -198,11 +199,9 @@ var clog = &mConfLog{}
 var cfgmu sync.Mutex
 var cfgmm = map[*CfgOption]*mConfig{}
 
-func cachedConfigure(option *CfgOption, in_newcfg bool) *mConfig {
-	if !in_newcfg {
-		cfgmu.Lock()
-		defer cfgmu.Unlock()
-	}
+func cachedConfigure(option *CfgOption) *mConfig {
+	cfgmu.Lock()
+	defer cfgmu.Unlock()
 	cfg := cfgmm[option]
 	if cfg == nil {
 		cfg = newConfig(option)
@@ -229,10 +228,12 @@ func NewConfig(option ...*CfgOption) Configure {
 	if len(option) == 0 {
 		return DefaultConfig
 	}
+	// 每个Configure都有自己的flatingConfigureOption基础实例，不在cachedConfigure中保留
 	cfg := newConfig(flatingConfigureOption)
 	for i := 0; i < len(option); i++ {
 		if option[i] != nil {
-			cfg.subConfigs = append(cfg.subConfigs, cachedConfigure(option[i], false))
+			cfg.subOptions = append(cfg.subOptions, option[i])
+			cfg.subConfigs = append(cfg.subConfigs, cachedConfigure(option[i]))
 		}
 	}
 	return cfg
@@ -250,6 +251,10 @@ func (mc *mConfig) Reset(subConfigs ...Configure) Configure {
 	return mc
 }
 
+func (mc *mConfig) SubOptions() []*CfgOption {
+	return mc.subOptions
+}
+
 func (mc *mConfig) SubConfigs() []Configure {
 	return mc.subConfigs
 }
@@ -262,6 +267,7 @@ type mConfig struct {
 	name           string
 	stamp          time.Time
 	option         *CfgOption
+	subOptions     []*CfgOption
 	subConfigs     []Configure
 	chetcdclient   chan etcd.Client
 	etcdclient     etcd.Client
@@ -283,6 +289,7 @@ func newConfig(co *CfgOption) (mc *mConfig) {
 		name:           co.Name,
 		stamp:          time.Now(),
 		option:         co,
+		subOptions:     []*CfgOption{},
 		subConfigs:     []Configure{},
 		basecfg:        sortedmap.NewLinkedMap(),
 		mergeConfigure: sortedmap.NewLinkedMap(),
@@ -324,7 +331,7 @@ func (mc *mConfig) loading() (err error) {
 	if cfg == nil {
 		return
 	}
-	mc.cfgloaded(cfg, true)
+	mc.cfgloaded(cfg)
 	// 后续变化加载
 	go func() {
 		for {
@@ -334,13 +341,13 @@ func (mc *mConfig) loading() (err error) {
 					// 终止
 					return
 				}
-				mc.cfgloaded(cfg, false)
+				mc.cfgloaded(cfg)
 			}
 		}
 	}()
 	return
 }
-func (mc *mConfig) cfgloaded(cfg *CfgInfo, newcfg bool) {
+func (mc *mConfig) cfgloaded(cfg *CfgInfo) {
 	if len(*cfg) == 0 {
 		return
 	}
@@ -353,7 +360,7 @@ func (mc *mConfig) cfgloaded(cfg *CfgInfo, newcfg bool) {
 				// 来自文件，ETCD等的配置信息，可能产生后续变化，重新设置基础配置信息后需要激活变更事件
 				// 为保证唯一性和一致性，k应与文件或ETCD等的路径相关
 				topt := getCfgOptionByKey(k)
-				tcfg := cachedConfigure(topt, newcfg)
+				tcfg := cachedConfigure(topt)
 				if tcfg.basecfg == nil || tcfg.basecfg.String() != v.String() {
 					tcfg.setbase(k, v)
 					tcfg.onChanged() // 首次执行不存在已注册的changeEvent，后续变化会激活已注册的changeEvent
