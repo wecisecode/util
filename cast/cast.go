@@ -1,6 +1,7 @@
 package cast
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -168,4 +169,31 @@ func ToIntSlice(i any) []int {
 func ToDurationSlice(i any) []time.Duration {
 	v, _ := ToDurationSliceE(i)
 	return v
+}
+
+// Slice casts an []From to a []To type.
+func CastSlice[From, To any](i []From) (ret []To) {
+	ret, e := CastSliceE[From, To](i)
+	if e != nil {
+		panic(e)
+	}
+	return ret
+}
+
+func CastSliceE[From, To any](i []From) (ret []To, err error) {
+	var todefault To
+	var x any
+	for _, x = range i {
+		if x == nil {
+			ret = append(ret, todefault)
+		} else {
+			if a, ok := x.(To); ok {
+				ret = append(ret, a)
+			} else {
+				err = fmt.Errorf("unable to cast %#v of type %T to %T", i, i, ret)
+				return
+			}
+		}
+	}
+	return
 }
