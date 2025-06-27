@@ -5,11 +5,17 @@ func Wildcard2RegexpString(wildcard string) string {
 	prunes := []rune{}
 	for i := 0; i < len(pattern); i++ {
 		c := pattern[i]
-		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c > 0x00FF {
+			if i == 0 {
+				prunes = append(prunes, '^')
+			}
 			prunes = append(prunes, c)
+			if i == len(pattern)-1 {
+				prunes = append(prunes, '$')
+			}
 		} else if c == '*' {
 			// * 变 .*
-			prunes = append(prunes, []rune(`.*`)...)
+			prunes = append(prunes, '.', '*')
 		} else if c == '?' {
 			// ? 变 .
 			prunes = append(prunes, '.')
@@ -18,7 +24,7 @@ func Wildcard2RegexpString(wildcard string) string {
 			prunes = append(prunes, '\\', c)
 		}
 	}
-	return "(?s)^" + string(prunes) + "$"
+	return "(?s)" + string(prunes)
 }
 
 func PathWildcard2RegexpString(wildcardpath string) string {
@@ -29,7 +35,7 @@ func PathWildcard2RegexpString(wildcardpath string) string {
 	}
 	for i := 0; i < len(pattern); i++ {
 		c := pattern[i]
-		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c > 0x00FF {
 			prunes = append(prunes, c)
 		} else if c == '*' {
 			if i+1 < len(pattern) && pattern[i+1] == '*' {
@@ -56,7 +62,7 @@ func Equal2RegexpString(equal string) string {
 	prunes := []rune{}
 	for i := 0; i < len(pattern); i++ {
 		c := pattern[i]
-		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c > 0x00FF {
 			prunes = append(prunes, c)
 		} else {
 			// 转义特殊字符
@@ -71,7 +77,7 @@ func Contain2RegexpString(contain string) string {
 	prunes := []rune{}
 	for i := 0; i < len(pattern); i++ {
 		c := pattern[i]
-		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c > 0x00FF {
 			prunes = append(prunes, c)
 		} else {
 			// 转义特殊字符
