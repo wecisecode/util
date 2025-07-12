@@ -8,6 +8,7 @@ import (
 
 	"github.com/wecisecode/util/cast/dateparse"
 	"github.com/wecisecode/util/merrs"
+	"github.com/wecisecode/util/set/strset"
 )
 
 // local zone utc+8
@@ -114,6 +115,8 @@ func TimeAssumes[I int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | 
 	return
 }
 
+var DefaultDatetimeFormat = strset.New()
+
 // 当 v 为数值时，根据数值范围确定时间精度为纳秒、微秒、毫秒、秒值，只能返回 北京时间 1973-03-03 17:46:40 ~ 2255-03-15 00:00:00
 // 当 v 为字符串时，可解析多种默认格式，可通过 layouts 指定更多的时间格式
 // v 为数值时，可通过 layouts 明确指定数值精度为纳秒 ns、微秒 us、毫秒 ms、秒 s、分 m、时 h、天 d
@@ -128,6 +131,12 @@ func ToDatetimeE(v any, layouts ...string) (time.Time, error) {
 	switch vv := v.(type) {
 	case string:
 		for _, layout := range layouts {
+			t, e = time.Parse(layout, vv)
+			if e == nil {
+				return t, nil
+			}
+		}
+		for layout := range DefaultDatetimeFormat.M {
 			t, e = time.Parse(layout, vv)
 			if e == nil {
 				return t, nil
