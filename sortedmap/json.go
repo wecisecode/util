@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 )
 
 var JSONParserError = fmt.Errorf("parser error")

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 )
 
 // ItemVistor callback should return true to keep going on the visitation.

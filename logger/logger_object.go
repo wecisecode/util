@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/spf13/cast"
 	"github.com/wecisecode/util/bfappender"
+	"github.com/wecisecode/util/cast"
 	"github.com/wecisecode/util/mfmt"
 )
 

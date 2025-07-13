@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 	"github.com/wecisecode/util/mfmt"
 )
 

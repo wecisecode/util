@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 )
 
 var SHARD_COUNT = 32

@@ -3,7 +3,7 @@ package sortedmap
 import (
 	"reflect"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 )
 
 func ToLinkedMap(amap map[interface{}]interface{}) *LinkedMap {

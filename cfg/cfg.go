@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 	"github.com/wecisecode/util/cfg/parser"
 	"github.com/wecisecode/util/cmap"
 	"github.com/wecisecode/util/etcd"

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 )
 
 // 将 Map 中的信息映射到对象

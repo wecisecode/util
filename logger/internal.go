@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 )
 
 var defaultLevelMaps = map[int32]*level{

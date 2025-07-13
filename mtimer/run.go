@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 	"github.com/wecisecode/util/sortedmap"
 )
 

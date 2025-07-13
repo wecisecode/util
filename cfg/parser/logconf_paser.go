@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/spf13/cast"
+	"github.com/wecisecode/util/cast"
 	"github.com/wecisecode/util/sortedmap"
 	"gopkg.in/ini.v1"
 )
