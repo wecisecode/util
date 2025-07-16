@@ -145,6 +145,7 @@ func FormatDuration(td time.Duration) (ret string) {
 var reDuration = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(\D+)`)
 
 // 默认单位为毫秒，可识别的单位包括：
+// "w", "week", "weeks", "周", "星期",
 // "d", "day", "days", "天",
 // "h", "hour", "hours", "点", "时", "小时",
 // "m", "min", "minute", "minutes", "分", "分钟",
@@ -169,6 +170,8 @@ func ParseDuration(s string) time.Duration {
 			continue
 		}
 		switch strings.ToLower(ss[2]) {
+		case "w", "week", "weeks", "周", "星期":
+			d += int64(cast.ToFloat64(ss[1]) * float64(7*24*time.Hour))
 		case "d", "day", "days", "天":
 			d += int64(cast.ToFloat64(ss[1]) * float64(24*time.Hour))
 		case "h", "hour", "hours", "点", "时", "小时":
