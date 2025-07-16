@@ -55,7 +55,7 @@ func NewFileWalker(walkpaths []string, fnpattern string) (fw *FileWalker, err er
 		prunes := []rune{}
 		for i := 0; i < len(pattern); i++ {
 			c := pattern[i]
-			if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' {
+			if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c > 0x00FF {
 				if i == 0 {
 					prunes = append(prunes, '^')
 				}
