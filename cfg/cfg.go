@@ -182,7 +182,13 @@ func init() {
 	CommandArgs = MConfig(CFGOPTION_ARGS)
 	Environs = MConfig(CFGOPTION_ENVS)
 	DefaultConfig = MConfig(CFGOPTION_ENVS, CFGOPTION_ARGS)
-	appname := regexp.MustCompile(`^(?:.*\/)?([^\/]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
+	// 根据操作系统类型确定执行文件主名
+	appname := ""
+	if runtime.GOOS == "windows" {
+		appname = regexp.MustCompile(`^(?:.*\\)?([^\\]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
+	} else {
+		appname = regexp.MustCompile(`^(?:.*\/)?([^\/]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
+	}
 	SetDefaultAppName(appname)
 }
 
@@ -333,15 +339,12 @@ func (mc *mConfig) loading() (err error) {
 	mc.cfgloaded(cfg)
 	// 后续变化加载
 	go func() {
-		for {
-			select {
-			case cfg := <-cfginfo:
-				if cfg == nil {
-					// 终止
-					return
-				}
-				mc.cfgloaded(cfg)
+		for cfg := range cfginfo {
+			if cfg == nil {
+				// 终止
+				return
 			}
+			mc.cfgloaded(cfg)
 		}
 	}()
 	return

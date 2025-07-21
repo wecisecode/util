@@ -228,9 +228,7 @@ func (mc *mConfig) loadFromETCD(parserf CfgParser, etcdfiles ...string) (retchci
 	}()
 	//
 	retchci = chcfginfo
-	select {
-	case err = <-etcdclienterr:
-		etcdclienterr = nil
-		return
-	}
+	err = <-etcdclienterr
+	etcdclienterr = nil
+	return
 }

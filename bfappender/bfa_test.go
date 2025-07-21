@@ -19,7 +19,7 @@ import (
 
 func init() {
 	exitChan := make(chan os.Signal, 1)
-	signal.Notify(exitChan, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGTSTP, syscall.SIGQUIT, syscall.SIGABRT, syscall.SIGTERM)
+	signal.Notify(exitChan, os.Interrupt, os.Kill, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGABRT, syscall.SIGTERM)
 	go func() {
 		s := <-exitChan
 		fmt.Println("收到退出信号", s)

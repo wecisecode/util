@@ -18,12 +18,9 @@ var filewatcher = cmap.New[string, *PollWatchInfo]()
 func init() {
 	go func() {
 		t := time.NewTimer(1 * time.Second)
-		for {
-			select {
-			case <-t.C:
-				filewatcher.IterCb(checkfilechange)
-				t.Reset(1 * time.Second)
-			}
+		for range t.C {
+			filewatcher.IterCb(checkfilechange)
+			t.Reset(1 * time.Second)
 		}
 	}()
 }

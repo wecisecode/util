@@ -11,7 +11,6 @@ type configFileLoader struct {
 	*mConfig
 	parserf   CfgParser
 	chcfginfo chan *CfgInfo
-	content   string
 }
 
 func (mc *configFileLoader) LoadConfigFile(filename string, err error) {
