@@ -185,9 +185,9 @@ func init() {
 	// 根据操作系统类型确定执行文件主名
 	appname := ""
 	if runtime.GOOS == "windows" {
-		appname = regexp.MustCompile(`^(?:.*\\)?([^\\]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
+		appname = regexp.MustCompile(`^(?:.*\\)?([^\\]+?)(?:\.[^\\\.]+)?$`).ReplaceAllString(os.Args[0], "$1")
 	} else {
-		appname = regexp.MustCompile(`^(?:.*\/)?([^\/]+)(?:\.[^\.]*)?$`).ReplaceAllString(os.Args[0], "$1")
+		appname = regexp.MustCompile(`^(?:.*\/)?([^\/]+?)(?:\.[^\\\.]+)?$`).ReplaceAllString(os.Args[0], "$1")
 	}
 	SetDefaultAppName(appname)
 }
