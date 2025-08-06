@@ -1,5 +1,52 @@
 package pattern
 
+func glob2RegexpString(glob string, regular bool) string {
+	pattern := []rune(glob)
+	prunes := []rune{}
+	for i := 0; i < len(pattern); i++ {
+		c := pattern[i]
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c > 0x00FF {
+			if i == 0 && regular {
+				prunes = append(prunes, '^')
+			}
+			prunes = append(prunes, c)
+			if i == len(pattern)-1 && regular {
+				prunes = append(prunes, '$')
+			}
+		} else if c == '[' {
+			// [...] 保持不变
+			for ; i < len(pattern); i++ {
+				c := pattern[i]
+				prunes = append(prunes, c)
+				if c == ']' {
+					break
+				}
+			}
+		} else if c == '*' {
+			// * 变 .*
+			prunes = append(prunes, '.', '*')
+		} else if c == '?' {
+			// ? 变 .
+			prunes = append(prunes, '.')
+		} else {
+			// 转义特殊字符
+			prunes = append(prunes, '\\', c)
+		}
+	}
+	if regular {
+		return "(?s)" + string(prunes)
+	}
+	return string(prunes)
+}
+
+func Glob2RegexpString(glob string) string {
+	return glob2RegexpString(glob, true)
+}
+
+func Glob2SimpleRegexpString(glob string) string {
+	return glob2RegexpString(glob, false)
+}
+
 func wildcard2RegexpString(wildcard string, regular bool) string {
 	pattern := []rune(wildcard)
 	prunes := []rune{}
