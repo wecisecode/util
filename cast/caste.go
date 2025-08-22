@@ -1,6 +1,7 @@
 package cast
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/spf13/cast"
@@ -110,6 +111,13 @@ func ToUint8E(i any) (uint8, error) {
 // ToString casts an interface to a string type.
 func ToStringE(i any) (string, error) {
 	v, e := cast.ToStringE(i)
+	if e != nil {
+		bs, e := json.MarshalIndent(v, "", "  ")
+		if e != nil {
+			return "", e
+		}
+		return string(bs), nil
+	}
 	return v, e
 }
 
